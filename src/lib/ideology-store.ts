@@ -42,7 +42,13 @@ export function ensureBaselineData() {
   if (typeof window === "undefined") return;
   pruneStaleEntries();
   splitCommunityEntries();
-  if (!window.localStorage.getItem(COMMUNITY_KEY)) {
+  const existing = getCommunityData();
+  // 模块重编号后（如 s18–s25 → s1–s8），旧编号的基线数据必须整体重建，否则按新编号过滤后全被丢弃
+  const moduleIds = new Set(IDEOLOGY_MODULES.map((mod) => mod.id));
+  const stale = [...existing.records, ...existing.logs].some(
+    (entry) => entry.module_id && !moduleIds.has(entry.module_id)
+  );
+  if (stale || existing.records.length === 0) {
     const baseline = buildCommunityBaseline();
     writeJson(COMMUNITY_KEY, { records: baseline.records, logs: baseline.logs });
   }
