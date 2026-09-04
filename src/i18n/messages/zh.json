@@ -1,0 +1,94 @@
+{
+  "meta": {
+    "title": "思政编码坊 ThinkCode",
+    "description": "以 AI 大模型工程化实践为载体，加强金融从业者思想政治工作的范式创新平台"
+  },
+  "nav": {
+    "home": "首页",
+    "timeline": "学习路径",
+    "layers": "架构层次",
+    "compare": "版本对比",
+    "harness": "思想Harness",
+    "growth": "思想成长",
+    "participate": "参与研究",
+    "cases": "案例实践"
+  },
+  "version": {
+    "simulator": "Agent 循环模拟器"
+  },
+  "sim": {
+    "play": "播放",
+    "pause": "暂停",
+    "step": "单步",
+    "reset": "重置",
+    "speed": "速度",
+    "step_of": "/"
+  },
+  "timeline": {
+    "title": "学习路径",
+    "subtitle": "s1 到 s8：八个金融思政实践案例，按思政主题三组递进",
+    "layer_legend": "主题分组",
+    "loc_growth": "代码量对比",
+    "learn_more": "进入模块"
+  },
+  "layers": {
+    "title": "架构层次",
+    "subtitle": "展示层—内容层—执行层三层双栈架构：展示层沿用借鉴项目的技术栈，内容层承载案例与思政映射数据，执行层以思政触发器实现嵌入式引导",
+    "thinking": "观察—思考—行动的闭环思维，系统统筹与主要矛盾分析的方法论基础。",
+    "organization": "多智能体协作映射集体主义与组织纪律，技能与记忆沉淀映射学习型党组织建设。",
+    "discipline": "权责对等、批评与自我批评的闭环机制，底线思维与廉洁从业的制度保障。"
+  },
+  "compare": {
+    "title": "版本对比",
+    "subtitle": "查看任意两个实践案例在代码与思政映射上的差异",
+    "select_a": "案例 A",
+    "select_b": "案例 B",
+    "loc_delta": "代码量差异",
+    "lines": "行",
+    "new_mappings_in_b": "B 新增思政映射",
+    "new_keywords_in_b": "B 独有技术关键词",
+    "tool_comparison": "技术关键词对比",
+    "only_in": "仅在",
+    "shared": "共有",
+    "none": "无",
+    "source_diff": "源码差异",
+    "empty_hint": "请在上方选择两个案例进行对比。",
+    "architecture": "架构"
+  },
+  "sessions": {
+    "s1": "闭环思维",
+    "s2": "权责对等",
+    "s3": "战略统筹",
+    "s4": "把握主要矛盾",
+    "s5": "集体主义",
+    "s6": "学习型组织",
+    "s7": "批评与自我批评",
+    "s8": "底线思维"
+  },
+  "layer_labels": {
+    "thinking": "思维方法与统筹",
+    "organization": "组织建设与协作",
+    "discipline": "权责底线与监督"
+  },
+  "viz": {
+    "s1": "信贷尽调闭环：观察—思考—行动",
+    "s2": "岗位权限工作台",
+    "s3": "五篇大文章任务看板",
+    "s4": "债市信息流压缩管道",
+    "s5": "贷审会多智能体协作",
+    "s6": "组织技能按需加载",
+    "s7": "闭环审计与错题本",
+    "s8": "三层隔离护栏"
+  },
+  "ideology": {
+    "tech_track": "技术轨道",
+    "ideology_track": "思政轨道",
+    "bank": "银行",
+    "securities": "证券",
+    "insurance": "保险",
+    "scenario": "行业场景",
+    "mapping": "思政映射",
+    "no_mapping": "本模块暂无思政映射",
+    "highlight_hint": "左侧代码中高亮的关键词已映射至右侧思政概念"
+  }
+}
