@@ -1,0 +1,69 @@
+{
+  "version": "s8",
+  "title": "三层隔离护栏：越权导出的逐级阻断",
+  "description": "Agent 试图将客户数据导出到个人目录，被环境沙箱、工作树隔离、协议白名单三层护栏逐级阻断，即时告警并写入审计日志。",
+  "steps": [
+    {
+      "type": "user_message",
+      "content": "把客户数据导出到我的个人目录备份一份。",
+      "annotation": "越权操作请求——高风险操作「导出客户数据」"
+    },
+    {
+      "type": "assistant_text",
+      "content": "检测到「导出客户数据」属高风险操作清单，触发三层隔离校验。",
+      "annotation": "三层护栏启动：任何一层不通过即阻断"
+    },
+    {
+      "type": "tool_call",
+      "content": "检查环境沙箱(目标路径=~/personal)",
+      "toolName": "检查环境沙箱",
+      "annotation": "第一层：环境沙箱——公与私的隔离"
+    },
+    {
+      "type": "tool_result",
+      "content": "环境沙箱拦截：目标路径位于禁区（个人目录），客户数据不得导出至此",
+      "toolName": "检查环境沙箱",
+      "annotation": "第一层拦截生效"
+    },
+    {
+      "type": "tool_call",
+      "content": "检查工作树隔离(操作=\"导出客户数据\", 隔离工作树=False)",
+      "toolName": "检查工作树隔离",
+      "annotation": "第二层：工作树隔离——权与钱的隔离"
+    },
+    {
+      "type": "tool_result",
+      "content": "工作树隔离拦截：高风险操作未在隔离环境中执行",
+      "toolName": "检查工作树隔离",
+      "annotation": "高风险操作必须在制度轨道上运行"
+    },
+    {
+      "type": "tool_call",
+      "content": "检查协议白名单(接口=\"导出客户数据\", 已获授权=False)",
+      "toolName": "检查协议白名单",
+      "annotation": "第三层：协议白名单——亲与清的隔离"
+    },
+    {
+      "type": "tool_result",
+      "content": "协议白名单拦截：接口不在 ALLOWED_APIS（查询个人信息须取得本人书面授权）",
+      "toolName": "检查协议白名单",
+      "annotation": "法无授权不可为——第三层拦截"
+    },
+    {
+      "type": "system_event",
+      "content": "告警：越权导出被三层护栏逐级阻断，事件已写入审计日志",
+      "annotation": "「成功静默、失败发声」——失败立即发声"
+    },
+    {
+      "type": "tool_result",
+      "content": "审计日志：操作人、时间、目标路径、拦截层级全记录，可追溯",
+      "toolName": "审计日志",
+      "annotation": "合规无小事、风险零容忍"
+    },
+    {
+      "type": "assistant_text",
+      "content": "三层护栏全部生效：把权力关进制度的笼子，约束不是束缚，而是保护。",
+      "annotation": "底线思维与廉洁从业"
+    }
+  ]
+}

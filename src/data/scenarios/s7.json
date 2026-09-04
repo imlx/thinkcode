@@ -1,0 +1,83 @@
+{
+  "version": "s7",
+  "title": "闭环审计：批评和自我批评的工程化",
+  "description": "营销文案断言「必须包含风险提示」：反面用例 F1 夸大收益、F2 风险揭示不足，失败自动记入错题本并在后续运行前置加载。",
+  "steps": [
+    {
+      "type": "user_message",
+      "content": "对营销文案生成流程执行闭环审计。",
+      "annotation": "批评和自我批评——反馈不是否定"
+    },
+    {
+      "type": "tool_call",
+      "content": "生成营销文案(含风险提示=True)",
+      "toolName": "生成营销文案",
+      "annotation": "正常流程：生成含风险提示的文案"
+    },
+    {
+      "type": "tool_result",
+      "content": "文案：「预期收益稳健，请注意市场有风险，投资须谨慎」",
+      "toolName": "生成营销文案",
+      "annotation": "文案就位，等待断言检验"
+    },
+    {
+      "type": "tool_call",
+      "content": "执行断言(输出, { \"必须包含\": \"风险提示\" })",
+      "toolName": "执行断言",
+      "annotation": "断言 = 制度红线，自动执行"
+    },
+    {
+      "type": "tool_result",
+      "content": "断言通过：风险提示在位",
+      "toolName": "执行断言",
+      "annotation": "成功静默——不打扰正常流程"
+    },
+    {
+      "type": "tool_call",
+      "content": "生成营销文案(反面用例=\"F1 夸大收益\")",
+      "toolName": "生成营销文案",
+      "annotation": "反面用例演练：F1 夸大收益话术"
+    },
+    {
+      "type": "tool_result",
+      "content": "文案：「稳赚不赔，预期年化 12%」",
+      "toolName": "生成营销文案",
+      "annotation": "F1 话术生成，红线埋雷"
+    },
+    {
+      "type": "tool_call",
+      "content": "执行断言(输出, { \"必须包含\": \"风险提示\" })",
+      "toolName": "执行断言",
+      "annotation": "同一道断言，再验一次"
+    },
+    {
+      "type": "tool_result",
+      "content": "AssertionError：文案未包含风险提示",
+      "toolName": "执行断言",
+      "annotation": "失败发声——问题显性化"
+    },
+    {
+      "type": "tool_call",
+      "content": "日志回溯()",
+      "toolName": "日志回溯",
+      "annotation": "审计监督：异常捕获与日志回溯"
+    },
+    {
+      "type": "tool_result",
+      "content": "异常已捕获：失败用例 F1 写入错题本，责任可追溯",
+      "toolName": "日志回溯",
+      "annotation": "失败记入错题本"
+    },
+    {
+      "type": "assistant_text",
+      "content": "后续运行前置加载错题本：F1 夸大收益、F2 风险揭示不足——同类错误不再重犯。",
+      "annotation": "闭环：批评是为了更好地前进"
+    },
+    {
+      "type": "tool_result",
+      "content": "下次生成前先检索错题本并主动规避",
+      "toolName": "前置加载",
+      "annotation": "自我批评的制度化——系统优化的必要条件"
+    }
+  ]
+}

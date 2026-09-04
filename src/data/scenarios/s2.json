@@ -1,0 +1,75 @@
+{
+  "version": "s2",
+  "title": "岗位权限：权责对等的制度意识",
+  "description": "客户经理查询征信须持客户书面授权；授信额度审批必须两名审批官双签，同一操作员不能发起又审批；大额划转强制双人复核。",
+  "steps": [
+    {
+      "type": "user_message",
+      "content": "客户经理甲请求查询客户 B 的征信报告（已持有客户书面授权，授权书编号 WX-2026-0187）。",
+      "annotation": "查询请求 + 书面授权——征信查询的制度前提"
+    },
+    {
+      "type": "tool_call",
+      "content": "query_customer_credit(customer_id=\"B\", operator=\"客户经理甲\", authorization=\"WX-2026-0187\")",
+      "toolName": "query_customer_credit",
+      "annotation": "工具先查权限字典：角色、级别、风险元数据"
+    },
+    {
+      "type": "tool_result",
+      "content": "允许：授权书编号有效，本次查询已留痕可追溯",
+      "toolName": "query_customer_credit",
+      "annotation": "权责对等——有权查询，查询留痕，用权受监督"
+    },
+    {
+      "type": "assistant_text",
+      "content": "现在为客户 B 发起授信额度审批：300 万元。",
+      "annotation": "审批请求进入工具层"
+    },
+    {
+      "type": "tool_call",
+      "content": "approve_credit_limit(customer_id=\"B\", amount=3000000, operator=\"客户经理甲\")",
+      "toolName": "approve_credit_limit",
+      "annotation": "客户经理甲是发起人——同一操作员不能发起又审批"
+    },
+    {
+      "type": "tool_result",
+      "content": "拒绝：发起人与审批人为同一操作员，需第二名审批官双签",
+      "toolName": "approve_credit_limit",
+      "annotation": "双人复核拦截：双签制的技术实现"
+    },
+    {
+      "type": "user_message",
+      "content": "审批官乙登录系统，对该笔额度进行复核。",
+      "annotation": "第二审批官介入——用权受监督"
+    },
+    {
+      "type": "tool_call",
+      "content": "approve_credit_limit(customer_id=\"B\", amount=3000000, operator=\"审批官乙\", initiator=\"客户经理甲\")",
+      "toolName": "approve_credit_limit",
+      "annotation": "双签齐备：发起与审批分离"
+    },
+    {
+      "type": "tool_result",
+      "content": "通过：双签完成，300 万元额度生效",
+      "toolName": "approve_credit_limit",
+      "annotation": "双人复核（dual approval）落地"
+    },
+    {
+      "type": "tool_call",
+      "content": "transfer_fund(account=\"B\", amount=5000000, operator=\"客户经理甲\")",
+      "toolName": "transfer_fund",
+      "annotation": "大额划转：强制双人复核"
+    },
+    {
+      "type": "tool_result",
+      "content": "拒绝：大额划转未获双人复核，默认拒绝（Deny by Default）",
+      "toolName": "transfer_fund",
+      "annotation": "底线思维——法无授权不可为"
+    },
+    {
+      "type": "assistant_text",
+      "content": "权限字典里的每一行配置，都是一份责任承诺书：权限即责任。",
+      "annotation": "工具注册与调度字典 = 岗位授权清单"
+    }
+  ]
+}

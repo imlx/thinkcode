@@ -1,0 +1,75 @@
+{
+  "version": "s5",
+  "title": "贷审会：三个子智能体的民主集中制",
+  "description": "公司金融部、风险管理部、运营管理部三个子智能体并行排查 E1—E5；对 E2 给出相反结论时，由主 Agent 集中裁决采纳风控意见。",
+  "steps": [
+    {
+      "type": "user_message",
+      "content": "对小微企业 E1—E5 启动贷款专项排查，限期完成。",
+      "annotation": "任务下达：多部门协同作战场景"
+    },
+    {
+      "type": "assistant_text",
+      "content": "主 Agent 拆解任务：三个子智能体并行——公司金融部、风险管理部、运营管理部。",
+      "annotation": "主 Agent 是「组织」的技术化身"
+    },
+    {
+      "type": "tool_call",
+      "content": "拆解任务()",
+      "toolName": "拆解任务",
+      "annotation": "任务拆分为三个并行任务包"
+    },
+    {
+      "type": "tool_result",
+      "content": "任务包：E1/E3/E5 → 公司金融部；E2/E4 → 风险管理部；流水核对 → 运营管理部",
+      "toolName": "拆解任务",
+      "annotation": "分工负责——各司其职、各尽其责"
+    },
+    {
+      "type": "tool_call",
+      "content": "并行执行()",
+      "toolName": "并行执行",
+      "annotation": "独立 messages 列表并行排查——任务隔离"
+    },
+    {
+      "type": "tool_result",
+      "content": "协议消息 { sender: 公司金融部, intent: 结论, payload: E1 通过 / E3 通过 / E5 关注 }",
+      "toolName": "并行执行",
+      "annotation": "协议通信：组织的共同语言"
+    },
+    {
+      "type": "tool_result",
+      "content": "协议消息 { sender: 风险管理部, intent: 结论, payload: E2 不通过 / E4 通过, requires_consensus: true }",
+      "toolName": "并行执行",
+      "annotation": "E2 给出相反结论——分歧显性化"
+    },
+    {
+      "type": "tool_result",
+      "content": "协议消息 { sender: 运营管理部, intent: 结论, payload: 经营流水核对无异常 }",
+      "toolName": "并行执行",
+      "annotation": "三个条线分头取证完成"
+    },
+    {
+      "type": "assistant_text",
+      "content": "公司金融部对 E2 的初判与风险管理部相反——requires_consensus 触发，提交主 Agent 裁决。",
+      "annotation": "民主：充分讨论；分歧不掩盖、上交"
+    },
+    {
+      "type": "tool_call",
+      "content": "汇总裁决(replies)",
+      "toolName": "汇总裁决",
+      "annotation": "集中：主 Agent 集中裁决"
+    },
+    {
+      "type": "tool_result",
+      "content": "裁决：采纳风险管理部意见，E2 不予准入——风控意见优先",
+      "toolName": "汇总裁决",
+      "annotation": "民主集中制——集中统一领导"
+    },
+    {
+      "type": "assistant_text",
+      "content": "排查闭环：整体合力大于个体之和。",
+      "annotation": "并行执行 + 集中裁决 = 协同作战"
+    }
+  ]
+}

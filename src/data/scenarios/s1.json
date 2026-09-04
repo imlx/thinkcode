@@ -1,0 +1,92 @@
+{
+  "version": "s1",
+  "title": "信贷尽调：观察—思考—行动的闭环",
+  "description": "客户经理提交贷前尽调任务，Agent 循环采集征信、财报、舆情（观察），形成风险研判（思考），输出授信建议并自动附加客户适当性评估（行动）。",
+  "steps": [
+    {
+      "type": "user_message",
+      "content": "对 A 企业完成贷前尽调：采集征信、财务报表与舆情，给出授信建议并附客户适当性评估。",
+      "annotation": "客户经理提交尽调任务，Agent 闭环启动——没有调查就没有发言权"
+    },
+    {
+      "type": "assistant_text",
+      "content": "我先进入观察环节，采集企业征信报告。",
+      "annotation": "观察（Observe）：调查研究的第一步"
+    },
+    {
+      "type": "tool_call",
+      "content": "采集企业征信(customer_id=\"A\")",
+      "toolName": "采集企业征信",
+      "annotation": "工具调用：征信事实采集"
+    },
+    {
+      "type": "tool_result",
+      "content": "征信报告：近 24 个月无逾期，授信余额与对外担保正常",
+      "toolName": "采集企业征信",
+      "annotation": "征信事实进入上下文"
+    },
+    {
+      "type": "tool_call",
+      "content": "采集财务报表(customer_id=\"A\")",
+      "toolName": "采集财务报表",
+      "annotation": "工具调用：财务事实采集"
+    },
+    {
+      "type": "tool_result",
+      "content": "财报：营收连续三年增长，经营性现金流为正",
+      "toolName": "采集财务报表",
+      "annotation": "财务事实进入上下文"
+    },
+    {
+      "type": "tool_call",
+      "content": "采集舆情信息(customer_id=\"A\")",
+      "toolName": "采集舆情信息",
+      "annotation": "工具调用：舆情事实采集"
+    },
+    {
+      "type": "tool_result",
+      "content": "公开舆情：无重大诉讼与行政处罚记录",
+      "toolName": "采集舆情信息",
+      "annotation": "三类事实齐备，观察环节完成"
+    },
+    {
+      "type": "assistant_text",
+      "content": "事实已齐：评估信用评分，做行业分析与担保评估，然后形成风险研判。",
+      "annotation": "思考（Think）：政治判断力、领悟力、执行力的技术对应"
+    },
+    {
+      "type": "tool_call",
+      "content": "思考环节(customer_id=\"A\", facts=[征信, 财报, 舆情], system_prompt=\"价值目标：金融工作的政治性、人民性\")",
+      "toolName": "思考环节",
+      "annotation": "系统提示词中的价值目标约束贯穿研判全程"
+    },
+    {
+      "type": "tool_result",
+      "content": "thinking: { 信用评分: 82, 行业风险: 低, 担保覆盖: 充足 }",
+      "toolName": "思考环节",
+      "annotation": "风险研判结构化，可回溯"
+    },
+    {
+      "type": "assistant_text",
+      "content": "依据研判结论生成授信建议，并自动附加客户适当性评估。",
+      "annotation": "行动（Act）：空谈误国、实干兴邦"
+    },
+    {
+      "type": "tool_call",
+      "content": "行动环节(customer_id=\"A\", thinking={...})",
+      "toolName": "行动环节",
+      "annotation": "授信建议 + 适当性评估一并输出"
+    },
+    {
+      "type": "tool_result",
+      "content": "授信建议：建议授信额度 800 万元、期限 1 年；客户适当性评估：适配",
+      "toolName": "行动环节",
+      "annotation": "闭环输出：结论附适当性评估，适当性前置"
+    },
+    {
+      "type": "assistant_text",
+      "content": "尽调闭环完成：观察—思考—行动各环节的输入输出全部留痕、可回溯。",
+      "annotation": "工作闭环 = 技术闭环，同一件事"
+    }
+  ]
+}

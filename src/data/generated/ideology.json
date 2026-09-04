@@ -1,0 +1,332 @@
+{
+  "modules": [
+    {
+      "id": "s1",
+      "title": "Agent Loop：观察—思考—行动的闭环思维",
+      "source": "",
+      "codePath": "s1_credit_loop/credit_loop.py",
+      "code": "#!/usr/bin/env python3\n# -*- coding: utf-8 -*-\n\"\"\"\ncredit_loop.py - 信贷审批尽调智能体：观察（Observe）—思考（Think）—行动（Act）闭环示例\n\n本文件为思政编码坊案例 s18 的独立实现，沿用经典 agent_loop() 的\nwhile True 主循环结构实现“观察—思考—行动”闭环，目录自足、可直接运行。\n\n数据来源（公开信息脱敏代号引用）：\n- A/B公司财务指标取自上市公司公开年报；\n- 行业基准与宏观舆情取自国家统计局、中国人民银行公开数据；\n- 代码中不出现任何真实机构名称，仅以脱敏代号 A/B/C 引用。\n\n用法：\n    python s18_credit_loop/credit_loop.py\n\"\"\"\n\nimport os\nimport subprocess\nfrom typing import Dict, List, Optional\n\n# -- 工具执行：优先复用原项目 code.py 中的 run_bash()，环境不满足时退化为本地实现 --\ntry:\n    from code import run_bash  # noqa: F401  复用原项目工具函数\nexcept Exception:  # 原模块依赖 anthropic 与 MODEL_ID 环境变量，缺失时启用本地退化版本\n    def run_bash(command: str) -> str:\n        \"\"\"本地退化版 bash 执行器，仅用于无 LLM 环境的演示验证。\"\"\"\n        try:\n            r = subprocess.run(command, shell=True, cwd=os.getcwd(),\n                               capture_output=True, text=True, timeout=30)\n            return (r.stdout + r.stderr).strip()[:5000] or \"(无输出)\"\n        except Exception as e:  # noqa: BLE001\n            return f\"错误：{e}\"\n\n\n# -- 系统提示词：价值目标约束是闭环能够推进的前提 --\n# 若缺少“坚持金融工作的政治性、人民性”这一价值目标约束，\n# 思考环节将判定循环缺少决策依据而拒绝推进（对应正文中“循环卡在观察—思考之间”的调试经历）。\nSYSTEM_PROMPT = (\n    \"你是一名银行信贷审批尽调智能体，必须始终坚持金融工作的政治性、人民性，\"\n    \"把服务实体经济、防控金融风险作为一切授信决策的根本出发点。\"\n    \"按照“观察—思考—行动”的闭环完成尽调：先全面采集客户信息，再审慎研判风险，\"\n    \"最后给出授信结论并自动完成客户适当性评估。\"\n)\n\n# -- 脱敏数据集（公开信息脱敏整理，禁止编造数据） --\nS1_DATA: Dict[str, Dict[str, object]] = {\n    \"A公司\": {\n        \"财务报表\": {\n            \"营业收入\": \"10407.59亿元（2024年度）\",\n            \"归属于母公司股东的净利润\": \"1383.73亿元，同比+5.0%（2024年度）\",\n            \"资产负债率\": \"34.3%（2024年末）\",\n            \"经营活动产生的现金流量净额\": \"3157.41亿元，同比+3.9%（2024年度）\",\n        },\n        \"舆情信息\": \"年报披露“BASIC6”科创计划、“AI+”行动计划（正面舆情条目原型，2024年度）\",\n        \"征信记录\": \"未见登记的失信记录；杠杆水平显著低于行业基准\",\n    },\n    \"B公司\": {\n        \"财务报表\": {\n            \"营业总收入\": \"132.09亿元，同比-8.15%（2024年度）\",\n            \"净利润\": \"2.89亿元，同比-73.04%（2024年度）\",\n            \"资产负债率\": \"13.34%（2024年末）\",\n            \"经营活动产生的现金流量净额\": \"6.59亿元，同比+150.62%（2024年度）\",\n        },\n        \"舆情信息\": \"未见登记的负面舆情条目\",\n        \"征信记录\": \"未见登记的失信记录；低杠杆，但盈利能力大幅下行\",\n    },\n    # C公司：S1表未登记其财务与征信数据，按“不得编造”纪律保持为空，\n    # 由闭环自然得出“补充材料”结论——数据缺失本身即是尽调发现。\n    \"C公司\": {},\n}\n\n# -- 行业基准与宏观舆情（S1表登记：国家统计局、中国人民银行公开数据） --\nINDUSTRY_BASELINE = {\n    \"规模以上工业企业资产负债率\": \"57.5%（2024年末，国家统计局）\",\n    \"规上工业企业营业收入利润率\": \"5.39%，其中制造业4.63%（2024年度，国家统计局）\",\n    \"应收账款平均回收期\": \"64.1天（2024年末，国家统计局）\",\n}\n\nMACRO_SENTIMENT = [\n    \"央行宣布自2025年5月15日起降准0.5个百分点，预计释放长期流动性约1万亿元\",\n    \"公开市场7天期逆回购操作利率由1.50%调整为1.40%（2025年5月8日起）\",\n    \"LPR报价：1年期3.0%、5年期以上3.5%（2025-09-22公布）\",\n]\n\n\n# -- 观察环节：三个模拟数据采集函数 --\ndef 采集企业征信(customer_id: str) -> str:\n    # 对应“没有调查就没有发言权”——调查研究是决策前提\n    \"\"\"采集企业征信信息（脱敏代号引用S1表登记内容，未登记项如实标注缺失）。\"\"\"\n    record = S1_DATA.get(customer_id, {})\n    credit = record.get(\"征信记录\")\n    if credit is None:\n        return f\"{customer_id}：征信信息未登记，无法核实——需补充授权查询材料\"\n    return f\"{customer_id}：{credit}\"\n\n\ndef 采集财务报表(customer_id: str) -> str:\n    # 对应“没有调查就没有发言权”——调查研究是决策前提\n    \"\"\"采集企业财务报表（A/B公司数值为上市公司公开年报原文，S1表登记）。\"\"\"\n    record = S1_DATA.get(customer_id, {})\n    statements = record.get(\"财务报表\")\n    if not statements:\n        return f\"{customer_id}：财务报表未登记，无法获取——需补充年报或审计报告\"\n    lines = [f\"{customer_id}财务报表（公开年报原文）：\"]\n    lines += [f\"  · {k}：{v}\" for k, v in statements.items()]\n    return \"\\n\".join(lines)\n\n\ndef 采集舆情信息(customer_id: str) -> str:\n    # 对应“没有调查就没有发言权”——调查研究是决策前提\n    \"\"\"采集企业舆情与宏观政策动向（S1表登记的公开信息）。\"\"\"\n    record = S1_DATA.get(customer_id, {})\n    company_news = record.get(\"舆情信息\", f\"{customer_id}：未见登记的企业舆情条目\")\n    macro = \"；\".join(MACRO_SENTIMENT)\n    return f\"企业舆情：{company_news}\\n宏观政策动向：{macro}\"\n\n\n# -- 思考环节：风险研判（信用评分、行业分析、担保评估） --\ndef 评估信用评分(financial_text: str) -> int:\n    \"\"\"基于S1表登记财务数据的简易信用评分（0—100）。\"\"\"\n    score = 60  # 基准分\n    if \"同比+5.0%\" in financial_text or \"同比+3.9%\" in financial_text:\n        score += 20  # 盈利与现金流双增\n    if \"同比-73.04%\" in financial_text or \"同比-8.15%\" in financial_text:\n        score -= 25  # 盈利大幅下行\n    if \"34.3%\" in financial_text or \"13.34%\" in financial_text:\n        score += 10  # 杠杆低于行业基准57.5%\n    if \"未登记\" in financial_text:\n        score = 0  # 无数据不得评分\n    return max(0, min(100, score))\n\n\ndef 行业分析(customer_id: str, financial_text: str) -> str:\n    \"\"\"对照国家统计局行业基准给出行业分析。\"\"\"\n    baseline = \"；\".join(f\"{k}{v}\" for k, v in INDUSTRY_BASELINE.items())\n    if \"未登记\" in financial_text:\n        return f\"{customer_id}财务数据缺失，无法对照行业基准（基准：{baseline}）\"\n    return f\"{customer_id}对照行业基准：{baseline}\"\n\n\ndef 担保评估(customer_id: str) -> str:\n    \"\"\"担保评估：S1表未登记担保信息，如实按信用方式评估，不虚构担保物。\"\"\"\n    return f\"{customer_id}：S1表未登记担保信息，按信用方式评估授信风险\"\n\n\ndef 思考环节(customer_id: str, facts: List[str], system_prompt: str) -> Dict[str, object]:\n    # 对应“提高政治判断力、政治领悟力、政治执行力”\n    \"\"\"风险研判：信用评分 + 行业分析 + 担保评估，并校验价值目标约束。\"\"\"\n    if \"坚持金融工作的政治性、人民性\" not in system_prompt:\n        # 缺少价值目标约束时循环无法推进——对应正文的调试经历\n        raise RuntimeError(\"系统提示词缺少价值目标约束，思考环节无法形成决策依据，循环停滞\")\n    financial_text = next((f for f in facts if \"财务报表\" in f), \"\")\n    score = 评估信用评分(financial_text)\n    analysis = \"\\n\".join([\n        行业分析(customer_id, financial_text),\n        担保评估(customer_id),\n    ])\n    missing = any(\"未登记\" in f for f in facts)\n    return {\"信用评分\": score, \"行业分析\": analysis, \"数据缺失\": missing}\n\n\n# -- 行动环节：授信建议输出（通过/拒绝/补充材料），自动附加客户适当性评估 --\ndef 客户适当性评估(customer_id: str, decision: str) -> str:\n    \"\"\"输出前自动执行的适当性评估：授信用途合规性、与客户经营规模匹配度、风险揭示。\"\"\"\n    return (\n        f\"客户适当性评估（{customer_id}）：\"\n        f\"授信用途须符合信贷政策与实体经济导向；\"\n        f\"授信额度须与客户经营规模、现金流匹配；\"\n        f\"结论为“{decision}”，已向客户充分揭示相应风险。\"\n    )\n\n\ndef 授信建议(thinking: Dict[str, object]) -> str:\n    \"\"\"根据研判结果给出三种结论之一：通过 / 拒绝 / 补充材料。\"\"\"\n    if thinking[\"数据缺失\"]:\n        return \"补充材料\"\n    score = thinking[\"信用评分\"]\n    if score >= 80:\n        return \"通过\"\n    if score <= 30:\n        return \"拒绝\"\n    return \"补充材料\"\n\n\ndef 行动环节(customer_id: str, thinking: Dict[str, object]) -> str:\n    # 对应“空谈误国、实干兴邦”——执行闭环\n    \"\"\"形成授信结论并自动附加客户适当性评估，随后写入审计时间戳。\"\"\"\n    decision = 授信建议(thinking)\n    appropriateness = 客户适当性评估(customer_id, decision)\n    # 复用 run_bash 记录决策时间戳，保证闭环可审计、可追溯\n    timestamp = run_bash(\"date '+%Y-%m-%d %H:%M:%S'\").splitlines()[0]\n    return (\n        f\"授信结论（{customer_id}）：{decision}\\n\"\n        f\"{appropriateness}\\n\"\n        f\"决策时间戳：{timestamp}\"\n    )\n\n\n# -- 核心模式：参照 code.py agent_loop() 的 while True 主循环结构 --\ndef agent_loop(customer_id: str, system_prompt: str) -> str:\n    messages: List[Dict[str, str]] = [\n        {\"role\": \"user\", \"content\": f\"请完成对{customer_id}的授信审批尽调\"}\n    ]\n    while True:\n        # 对应“没有调查就没有发言权”——调查研究是决策前提\n        facts = [\n            采集企业征信(customer_id),\n            采集财务报表(customer_id),\n            采集舆情信息(customer_id),\n        ]\n        messages.append({\"role\": \"user\", \"content\": \"\\n\".join(facts)})\n\n        # 对应“提高政治判断力、政治领悟力、政治执行力”\n        thinking = 思考环节(customer_id, facts, system_prompt)\n        messages.append({\"role\": \"assistant\", \"content\": str(thinking)})\n\n        # 对应“空谈误国、实干兴邦”——执行闭环\n        final = 行动环节(customer_id, thinking)\n        messages.append({\"role\": \"assistant\", \"content\": final})\n        # 如同 code.py 中“模型不再调用工具即退出循环”，形成结论后闭环终止\n        break\n    return final\n\n\n# -- 入口 --\nif __name__ == \"__main__\":\n    print(\"s01: 信贷审批尽调智能体（观察—思考—行动闭环）\")\n    print(\"数据来源：公开信息脱敏整理（代号引用）\\n\")\n    for customer in (\"A公司\", \"B公司\", \"C公司\"):\n        print(\"=\" * 60)\n        print(f\"开始尽调：{customer}\")\n        print(\"-\" * 60)\n        result = agent_loop(customer, SYSTEM_PROMPT)\n        print(result)\n        print()\n    print(\"闭环验证完成：三户企业均走完“观察—思考—行动”完整循环。\")\n",
+      "mapping": [
+        {
+          "tech": "观察（Observe）",
+          "ideology": "调查研究——“没有调查就没有发言权”"
+        },
+        {
+          "tech": "思考（Think）",
+          "ideology": "政治判断力、政治领悟力、政治执行力"
+        },
+        {
+          "tech": "行动（Act）",
+          "ideology": "务实作风——“空谈误国、实干兴邦”"
+        },
+        {
+          "tech": "系统提示词中的价值目标约束",
+          "ideology": "金融工作的政治性、人民性"
+        }
+      ],
+      "scenario": {
+        "bank": "信贷审批“客户尽调—风险研判—授信执行”闭环：客户经理采集企业征信、财务报表与舆情，形成授信结论并自动附加客户适当性评估。",
+        "securities": "投资顾问“市场观察—策略研判—交易执行”闭环：投顾先研读公告与研报（观察），再形成投资建议（思考），最后经适当性校验后下达（行动）。",
+        "insurance": "理赔查勘“现场查勘—责任认定—赔付执行”闭环：查勘员先固定证据，再对照条款研判，最后在与客户充分沟通后完成赔付。"
+      },
+      "ahaPrompt": "当你亲手跑通这个循环时，哪个瞬间让你觉得“技术闭环”与“工作闭环”真的是同一件事？",
+      "ahaOptions": [
+        "调查研究是谋事之基、成事之道",
+        "空谈误国、实干兴邦——闭环成在最后一公里",
+        "没有调查就没有发言权——观察环节最耗时也最不能省",
+        "人民性藏在细节里——适当性评估自动附加",
+        "从群众中来、到群众中去——技术闭环与工作闭环同构",
+        "政策执行不能“拍脑袋”——价值目标约束让循环贯通",
+        "抓落实就是抓闭环、抓闭环就是抓责任",
+        "没有共鸣"
+      ]
+    },
+    {
+      "id": "s2",
+      "title": "Tool Use 与权限管理：权责对等的制度意识",
+      "source": "",
+      "codePath": "s2_credit_permission/credit_tools.py",
+      "code": "#!/usr/bin/env python3\n# -*- coding: utf-8 -*-\n\"\"\"\ncredit_tools.py - 岗位授权审批主题的工具调用示例（s19_credit_permission 目录文件）\n\n参照工具调度字典（TOOL_HANDLERS）的经典模式，注册三个模拟信贷工具：\n查询客户征信、审批授信额度、资金划转。每个工具附带 permission 元数据\n（允许角色 role / 所需授权级别 level / 风险等级 risk）。\n\n制度依据（公开法规脱敏整理，禁止虚构）：\n- 双人复核（dual approval）原型：《商业银行小企业授信工作尽职指引（试行）》（中国银监会，2006年）双签制；\n- 权限元数据设计依据：《商业银行授信工作尽职指引》（银监发〔2004〕51号）各环节尽职要求；\n- 高风险拒绝与告警规则依据：小微企业授信尽职免责“不得免责”五种情形（银监会，2018年）。\n\n用法：\n    python s19_credit_permission/credit_tools.py\n\"\"\"\n\nfrom typing import Callable, Dict\n\n\n# -- 三个模拟工具实现（演示用，不触达真实系统） --\ndef query_customer_credit(customer_id: str, operator: str) -> str:\n    \"\"\"查询客户征信（须已取得信息主体书面授权，见 role_permission.check_permission 前置校验）。\"\"\"\n    return f\"已受理{operator}对{customer_id}的征信查询申请（模拟）\"\n\n\ndef approve_credit_limit(customer_id: str, amount: float, operator: str) -> str:\n    \"\"\"审批授信额度（高风险工具，强制双人复核）。\"\"\"\n    return f\"已完成对{customer_id}授信额度{amount:.2f}万元的审批（模拟）\"\n\n\ndef transfer_fund(account: str, amount: float, operator: str) -> str:\n    \"\"\"资金划转（高风险工具，强制双人复核）。\"\"\"\n    return f\"已从账户{account}划转资金{amount:.2f}万元（模拟）\"\n\n\n# -- 工具注册表：参照 code.py 的 TOOL_HANDLERS 调度字典模式 --\nTOOLS = [\n    {\n        \"name\": \"query_customer_credit\",\n        \"description\": \"查询客户征信：查询前必须取得信息主体本人书面授权（《征信业管理条例》）\",\n        \"permission\": {\"role\": [\"客户经理\", \"风险经理\"], \"level\": 1, \"risk\": \"中\"},\n    },\n    {\n        \"name\": \"approve_credit_limit\",\n        \"description\": \"审批授信额度：高风险操作，同一操作员不得同时发起与审批（双签制）\",\n        \"permission\": {\"role\": [\"审批官\"], \"level\": 3, \"risk\": \"高\"},\n    },\n    {\n        \"name\": \"transfer_fund\",\n        \"description\": \"资金划转：高风险操作，强制双人复核，同一操作员不得同时发起与审批\",\n        \"permission\": {\"role\": [\"资金运营\", \"柜员\"], \"level\": 3, \"risk\": \"高\"},\n    },\n]\n\nTOOL_HANDLERS: Dict[str, Callable] = {\n    \"query_customer_credit\": query_customer_credit,\n    \"approve_credit_limit\": approve_credit_limit,\n    \"transfer_fund\": transfer_fund,\n}\n\n# 权限即责任——客户经理有授信发起权，就必须承担尽职调查责任\nTOOL_PERMISSION = {t[\"name\"]: t[\"permission\"] for t in TOOLS}\n\n\nif __name__ == \"__main__\":\n    print(\"s02: 岗位授权工具注册表（信贷主题）\")\n    for tool in TOOLS:\n        perm = tool[\"permission\"]\n        print(f\"- {tool['name']}（风险等级：{perm['risk']}）\")\n        print(f\"  描述：{tool['description']}\")\n        print(f\"  允许角色：{'、'.join(perm['role'])}；所需授权级别：{perm['level']}\")\n    print(\"\\n调度字典 TOOL_HANDLERS 已注册：\", \"、\".join(TOOL_HANDLERS))\n",
+      "mapping": [
+        {
+          "tech": "工具注册与调度字典",
+          "ideology": "岗位授权清单——每一行都是责任承诺书"
+        },
+        {
+          "tech": "permission 元数据（角色/级别/风险）",
+          "ideology": "权责对等——“权限即责任”"
+        },
+        {
+          "tech": "默认拒绝（Deny by Default）",
+          "ideology": "底线思维——“法无授权不可为”"
+        },
+        {
+          "tech": "双人复核（dual approval）",
+          "ideology": "用权受监督——双签制的技术实现"
+        }
+      ],
+      "scenario": {
+        "bank": "岗位权限配置：客户经理持客户书面授权方可查询征信；授信额度审批必须两名审批官双签，同一操作员不能发起又审批。",
+        "securities": "交易系统权限：投顾有建议权但无自营下单权；大额划转强制双人复核，防范违规代客操作。",
+        "insurance": "核保与理赔权限分离：核保员有承保决定权就必须承担尽职核查责任；高额理赔须双人签批。"
+      },
+      "ahaPrompt": "当你亲手为高风险工具加上“默认拒绝”规则时，你对“有权必有责、用权受监督”的理解发生了什么变化？",
+      "ahaOptions": [
+        "法无授权不可为——默认拒绝是制度先行的底线思维",
+        "有权必有责、用权受监督",
+        "把权力关进制度的笼子——授权清单就是责任清单",
+        "双人复核不是效率负担，而是保护干部的制度设计",
+        "制度的生命在于执行，执行的关键在于刚性",
+        "信任不能代替监督，技术让监督无处不在",
+        "阳光是最好的防腐剂——审批留痕让权力透明运行",
+        "没有共鸣"
+      ]
+    },
+    {
+      "id": "s3",
+      "title": "TodoWrite 与 Planning：系统思维与战略统筹",
+      "source": "",
+      "codePath": "s3_strategy_todos/strategy_todos.py",
+      "code": "#!/usr/bin/env python3\n# -*- coding: utf-8 -*-\n\"\"\"\nstrategy_todos.py - “金融五篇大文章”战略任务拆解器（s20_strategy_todos 目录文件）\n\n任务基类 TodoManager 负责任务描述、优先级、依赖任务与状态流转\n（pending→in_progress→completed）：运行时优先复用原项目实现，缺失时启用\n本文件内置的接口一致退化版本。本文件在其模式上扩展战略任务拆解、\n依赖拓扑排序与中文进度看板。\n\n数据依据（公开监管数据脱敏整理，禁止编造）：\n- 各篇大文章贷款余额、增速与特色场景：国有大行2025年年度报告（新华财经读财报报道）；\n- 再贷款额度与利率、科创债券公告：中国人民银行公开信息；\n- 总体政策依据：国务院办公厅《关于做好金融“五篇大文章”的指导意见》、\n  中国人民银行等《金融“五篇大文章”总体统计制度（试行）》。\n\n用法：\n    python s20_strategy_todos/strategy_todos.py\n\"\"\"\n\nfrom typing import Dict, List, Optional\n\n# -- 复用原项目 TodoManager：环境具备依赖时直接 import，否则使用接口一致的退化实现 --\ntry:\n    from code import TodoManager  # noqa: F401  复用原项目任务管理器\nexcept Exception:  # 原模块依赖 anthropic 与 MODEL_ID 环境变量，缺失时启用本地退化版本\n    class TodoManager:\n        \"\"\"与 code.py 中 TodoManager 接口一致的退化实现（content/status 校验与渲染）。\"\"\"\n\n        状态标记 = {\"pending\": \"[ ]\", \"in_progress\": \"[>]\", \"completed\": \"[x]\"}\n\n        def __init__(self) -> None:\n            self.items: List[Dict[str, str]] = []\n\n        def update(self, todos: List[Dict[str, str]]) -> str:\n            for todo in todos:\n                if todo.get(\"status\") not in self.状态标记:\n                    raise ValueError(f\"非法状态：{todo.get('status')}\")\n            self.items = todos\n            return self.render()\n\n        def render(self) -> str:\n            lines = [f\"{self.状态标记[t['status']]} {t['content']}\" for t in self.items]\n            done = sum(t[\"status\"] == \"completed\" for t in self.items)\n            lines.append(f\"\\n({done}/{len(self.items)} completed)\")\n            return \"\\n\".join(lines)\n\n\nclass StrategyTodoManager(TodoManager):\n    \"\"\"在 TodoManager 之上扩展优先级与依赖关系的战略任务管理器。\"\"\"\n\n    def __init__(self) -> None:\n        super().__init__()\n        self.tasks: Dict[str, Dict[str, object]] = {}\n\n    def add_task(self, task_id: str, content: str, priority: int,\n                 depends_on: Optional[List[str]] = None,\n                 belongs_to: str = \"\") -> None:\n        self.tasks[task_id] = {\n            \"内容\": content,\n            \"优先级\": priority,\n            \"依赖\": depends_on or [],\n            \"状态\": \"pending\",\n            \"所属篇章\": belongs_to,\n        }\n\n    def set_status(self, task_id: str, status: str) -> None:\n        if status not in (\"pending\", \"in_progress\", \"completed\"):\n            raise ValueError(f\"非法状态：{status}\")\n        self.tasks[task_id][\"状态\"] = status\n\n    def topo_order(self) -> List[str]:\n        \"\"\"依赖拓扑排序：保证每个任务排在它的依赖之后。\"\"\"\n        visited, order = set(), []\n\n        def visit(task_id: str) -> None:\n            if task_id in visited:\n                return\n            for dep in self.tasks[task_id][\"依赖\"]:  # 先完成依赖，再推进本任务\n                visit(dep)\n            visited.add(task_id)\n            order.append(task_id)\n\n        for task_id in self.tasks:\n            visit(task_id)\n        return order\n\n    def render_board(self) -> str:\n        \"\"\"中文进度看板：按状态分组展示优先级、依赖与所属篇章。\"\"\"\n        分组 = {\"in_progress\": [], \"pending\": [], \"completed\": []}\n        for task_id, task in self.tasks.items():\n            分组[task[\"状态\"]].append((task_id, task))\n\n        lines = [\"=\" * 62, \"“五篇大文章”战略任务进度看板\", \"=\" * 62]\n        标签 = {\"in_progress\": \"进行中\", \"pending\": \"待启动\", \"completed\": \"已完成\"}\n        for status in (\"in_progress\", \"pending\", \"completed\"):\n            lines.append(f\"\\n【{标签[status]}】\")\n            if not 分组[status]:\n                lines.append(\"  （无）\")\n            for task_id, task in 分组[status]:\n                deps = \"、\".join(task[\"依赖\"]) if task[\"依赖\"] else \"无\"\n                lines.append(\n                    f\"  · [{task_id}] {task['内容']}\"\n                    f\"（优先级P{task['优先级']}；依赖：{deps}；篇章：{task['所属篇章']}）\"\n                )\n        done = sum(1 for t in self.tasks.values() if t[\"状态\"] == \"completed\")\n        lines.append(f\"\\n完成进度：{done}/{len(self.tasks)}\")\n        return \"\\n\".join(lines)\n\n\n# -- 战略拆解：数据为公开监管数据脱敏整理 --\ndef decompose_strategy(manager: StrategyTodoManager) -> None:\n    # 系统观念——五篇大文章是有机整体，不能“单打一”\n    \"\"\"将“做好金融五篇大文章”拆解为五个一级子任务及可执行动作。\"\"\"\n    # 总体框架：统计口径先行（《金融“五篇大文章”总体统计制度（试行）》）\n    manager.add_task(\"T0\", \"统计口径与考核对标（总体统计制度先行）\", priority=0, belongs_to=\"总体框架\")\n\n    # 科技金融（某国有大行科技贷款余额6万亿元、增速19.9%，S3表）\n    manager.add_task(\"T1\", \"科技金融·“投早投小”客户清单梳理与科技型企业贷款投放\", priority=1,\n                     depends_on=[\"T0\"], belongs_to=\"科技金融\")\n    manager.add_task(\"T2\", \"科技金融·科创债券与科技创新和技术改造再贷款对接\"\n                           \"（额度增至8000亿元，公告〔2025〕8号）\", priority=2,\n                     depends_on=[\"T1\"], belongs_to=\"科技金融\")\n\n    # 绿色金融（某国有大行绿色贷款余额超6.7万亿元居同业第一；另一大行增速27.83%，S3表）\n    manager.add_task(\"T3\", \"绿色金融·绿色信贷标准对标（对标同业6.7万亿元存量实践）\", priority=1,\n                     depends_on=[\"T0\"], belongs_to=\"绿色金融\")\n    manager.add_task(\"T4\", \"绿色金融·《绿色金融支持项目目录（2025年版）》更新对标\", priority=2,\n                     depends_on=[\"T3\"], belongs_to=\"绿色金融\")\n\n    # 普惠金融（某国有大行普惠型小微企业贷款余额3.6万亿元；另一大行服务180多万户，S3表）\n    manager.add_task(\"T5\", \"普惠金融·小微企业触达率提升方案（对标3.6万亿元存量）\", priority=1,\n                     depends_on=[\"T0\"], belongs_to=\"普惠金融\")\n    manager.add_task(\"T6\", \"普惠金融·支农支小再贷款运用\"\n                           \"（央行增加额度3000亿元，利率降至1.2%—1.5%）\", priority=2,\n                     depends_on=[\"T5\"], belongs_to=\"普惠金融\")\n\n    # 养老金融（某国有大行管理各类养老金规模超5.9万亿元，S3表）\n    manager.add_task(\"T7\", \"养老金融·养老金账户体系建设（对标5.9万亿元管理规模）\", priority=1,\n                     depends_on=[\"T0\"], belongs_to=\"养老金融\")\n    manager.add_task(\"T8\", \"养老金融·养老产业信贷支持（运用服务消费与养老再贷款）\", priority=2,\n                     depends_on=[\"T7\"], belongs_to=\"养老金融\")\n\n    # 数字金融（千亿参数金融大模型；数字经济核心产业贷款余额超1万亿元，S3表）\n    manager.add_task(\"T9\", \"数字金融·大模型与数字基础设施建设\"\n                           \"（对标千亿参数金融大模型与超1万亿元数字经济贷款）\", priority=1,\n                     depends_on=[\"T0\"], belongs_to=\"数字金融\")\n\n\ndef 拓扑排序并演示(manager: StrategyTodoManager) -> None:\n    # 战略拆解——宏大叙事必须落实为岗位动作与先后次序\n    \"\"\"按依赖顺序推进任务状态流转，验证拆解、排序与进度追踪。\"\"\"\n    order = manager.topo_order()\n    print(\"依赖拓扑排序结果：\")\n    print(\"  \" + \" → \".join(order))\n    print(\"\\n按拓扑次序模拟执行（pending → in_progress → completed）：\")\n    for task_id in order:\n        manager.set_status(task_id, \"in_progress\")\n        print(f\"  [{task_id}] 进入执行：{manager.tasks[task_id]['内容']}\")\n        manager.set_status(task_id, \"completed\")\n        print(f\"  [{task_id}] 已完成\")\n\n\nif __name__ == \"__main__\":\n    print(\"s05: “金融五篇大文章”战略任务拆解器\")\n    print(\"数据出处：国有大行年报、中国人民银行公开信息（脱敏整理）\\n\")\n\n    manager = StrategyTodoManager()\n    decompose_strategy(manager)\n    print(f\"已将战略拆解为 {len(manager.tasks)} 项可执行任务（含1项总体框架任务）\\n\")\n\n    拓扑排序并演示(manager)\n\n    print()\n    print(manager.render_board())\n    print(\"\\n验证完成：拆解、依赖排序与状态流转全部走通。\")\n",
+      "mapping": [
+        {
+          "tech": "任务拆解（decompose）",
+          "ideology": "战略拆解——宏大叙事落实为岗位动作"
+        },
+        {
+          "tech": "依赖排序（拓扑排序）",
+          "ideology": "系统观念——把握先后次序，不能“单打一”"
+        },
+        {
+          "tech": "进度看板与状态流转",
+          "ideology": "可追踪、可检验的执行力"
+        },
+        {
+          "tech": "优先级（priority）",
+          "ideology": "主要矛盾——牵住“牛鼻子”"
+        }
+      ],
+      "scenario": {
+        "bank": "总行把“五篇大文章”拆解为部门任务清单：科技金融“投早投小”客户清单梳理、绿色金融标准对标、普惠触达率提升，依赖关系清晰、进度可追踪。",
+        "securities": "投行项目拆解：尽调、申报、发行、督导各阶段设置依赖与里程碑，项目看板全组可见。",
+        "insurance": "农险服务网络建设：先建乡镇服务点（依赖前置），再推进承保覆盖面提升。"
+      },
+      "ahaPrompt": "把“五篇大文章”写成可执行的 Todo List 之后，你对“战略不是口号”这句话有了什么新理解？",
+      "ahaOptions": [
+        "战略不是口号，而是一组有依赖、可追踪的具体行动",
+        "系统观念——十个指头弹钢琴，不能单打一",
+        "致广大而尽精微——宏大叙事要落到岗位动作",
+        "全国一盘棋——局部目标服从全局拓扑",
+        "善弈者谋势——先谋后动、谋定后动",
+        "一张蓝图绘到底——进度看板让战略可交付",
+        "抓主要矛盾也要抓矛盾的主要方面——优先级就是政治",
+        "没有共鸣"
+      ]
+    },
+    {
+      "id": "s4",
+      "title": "Context Compact：去伪存真、把握主要矛盾",
+      "source": "",
+      "codePath": "s4_bond_compact/bond_compact.py",
+      "code": "#!/usr/bin/env python3\n# -*- coding: utf-8 -*-\n\"\"\"\nbond_compact.py - 债券投资研究场景的上下文压缩示例（s21_bond_compact 目录文件）\n\n参照 tool_result_budget、micro_compact、compact_history 的\n分层压缩思路，实现 compact_context(messages, budget) 函数，在 token（字符）\n预算约束下输出压缩后的上下文：三层过滤 = 权威性分层 + 相关性打分 + 去噪摘要。\n\n语料数据（公开语料脱敏整理，禁止编造）：\n- 种子集：S4表登记的真实公开语料（政策原文P1—P9、官媒解读M1—M4、\n  市场报道R1—R4、情绪帖E1—E2，来源为中国人民银行、人民网、新华网、\n  光明网、新华财经、财联社、时代周报等公开渠道）；\n- 扩展语料：以种子为原型改写扩展至50条，每条均在“来源编号”字段中\n  逐条标注所依据的种子编号（如“M2-扩1”即改写自M2），不引入任何\n  种子之外的事实。\n\n用法：\n    python s21_bond_compact/bond_compact.py\n\"\"\"\n\nfrom typing import Dict, List, Tuple\n\n# -- 权威性分层权重：政策原文 > 官媒解读 > 市场报道 > 情绪帖 --\nAUTHORITY_WEIGHT = {\"政策原文\": 4, \"官媒解读\": 3, \"市场报道\": 2, \"情绪帖\": 1}\n\n# -- 相关性关键词（债市核心议题） --\nRELEVANCE_KEYWORDS = [\n    \"降准\", \"逆回购\", \"LPR\", \"MLF\", \"国债收益率\", \"科技创新债券\",\n    \"再贷款\", \"境外机构投资者\", \"债券回购\", \"降息\", \"国债买卖\",\n]\n\n# -- 种子集：S4表登记的真实公开语料（编号/类型/日期/内容/来源名称） --\nSEEDS: List[Dict[str, str]] = [\n    {\"编号\": \"P1\", \"类型\": \"政策原文\", \"日期\": \"2025-05-07\", \"内容\": \"央行决定自5月15日起下调金融机构存款准备金率0.5个百分点\", \"来源\": \"中国人民银行\"},\n    {\"编号\": \"P2\", \"类型\": \"政策原文\", \"日期\": \"2025-05-07\", \"内容\": \"5月8日起公开市场7天期逆回购操作利率由1.50%调整为1.40%\", \"来源\": \"中国人民银行\"},\n    {\"编号\": \"P3\", \"类型\": \"政策原文\", \"日期\": \"2025-04-21\", \"内容\": \"LPR报价：1年期3.1%、5年期以上3.6%，与上期持平\", \"来源\": \"全国银行间同业拆借中心\"},\n    {\"编号\": \"P4\", \"类型\": \"政策原文\", \"日期\": \"2025-09-22\", \"内容\": \"LPR报价：1年期3.0%、5年期以上3.5%，与上期持平\", \"来源\": \"全国银行间同业拆借中心\"},\n    {\"编号\": \"P5\", \"类型\": \"政策原文\", \"日期\": \"2025-05-07\", \"内容\": \"央行与证监会联合发布《关于支持发行科技创新债券有关事宜的公告》（〔2025〕8号）\", \"来源\": \"中国人民银行 中国证监会\"},\n    {\"编号\": \"P6\", \"类型\": \"政策原文\", \"日期\": \"2025-09-19\", \"内容\": \"公开市场14天期逆回购操作调整为固定数量、利率招标、多重价位中标\", \"来源\": \"中国人民银行公开市场业务公告〔2025〕第3号\"},\n    {\"编号\": \"P7\", \"类型\": \"政策原文\", \"日期\": \"2025-03-25\", \"内容\": \"央行开展MLF操作4500亿元，并调整为多重价位中标\", \"来源\": \"中国人民银行\"},\n    {\"编号\": \"P8\", \"类型\": \"政策原文\", \"日期\": \"2025-05-07\", \"内容\": \"下调再贷款利率0.25个百分点；支农支小再贷款额度增加3000亿元\", \"来源\": \"中国人民银行\"},\n    {\"编号\": \"P9\", \"类型\": \"政策原文\", \"日期\": \"2025-09-26\", \"内容\": \"央行等三部门支持境外机构投资者在中国债券市场开展债券回购业务\", \"来源\": \"中国人民银行等公告〔2025〕第21号\"},\n    {\"编号\": \"M1\", \"类型\": \"官媒解读\", \"日期\": \"2025-05-07\", \"内容\": \"人民网：《中国人民银行：5月8日起降息15日起降准》\", \"来源\": \"人民网\"},\n    {\"编号\": \"M2\", \"类型\": \"官媒解读\", \"日期\": \"2025-07-07\", \"内容\": \"新华网《2025债市半年观察》：10年期国债收益率从年初低点约1.6%升至3月中旬1.9%（累计上行30BP），7月4日回落至1.64%\", \"来源\": \"新华网\"},\n    {\"编号\": \"M3\", \"类型\": \"官媒解读\", \"日期\": \"2025-05-07\", \"内容\": \"光明网：降准降息“时间表”确定，潘功胜行长介绍政策安排\", \"来源\": \"光明网\"},\n    {\"编号\": \"M4\", \"类型\": \"官媒解读\", \"日期\": \"2025-05-07\", \"内容\": \"权威专家解读：适时降息是稳就业、稳企业、稳市场、稳预期的有力举措\", \"来源\": \"中证金牛座（新浪财经转载）\"},\n    {\"编号\": \"R1\", \"类型\": \"市场报道\", \"日期\": \"2025-12-31\", \"内容\": \"财联社《复盘2025年债市》：10年期国债收益率全年上行约25BP至1.85%；1月最低探至1.59%，3月中旬触及1.9%，4月3日单日下行近8BP，10月央行重启国债买卖\", \"来源\": \"财联社\"},\n    {\"编号\": \"R2\", \"类型\": \"市场报道\", \"日期\": \"2025-03-03\", \"内容\": \"新华财经债市观察：2月10年期国债活跃券收益率上行11BP至1.779%\", \"来源\": \"新华财经\"},\n    {\"编号\": \"R3\", \"类型\": \"市场报道\", \"日期\": \"2025-03-10\", \"内容\": \"新华财经：宽松预期降温，10年期国债收益率升至12周高位1.7875%\", \"来源\": \"新华财经（新浪财经转载）\"},\n    {\"编号\": \"R4\", \"类型\": \"市场报道\", \"日期\": \"2025-03-25\", \"内容\": \"时代周报：债市波动加剧，10年期国债收益率重返1.81%\", \"来源\": \"新浪财经转载时代周报\"},\n    {\"编号\": \"E1\", \"类型\": \"情绪帖\", \"日期\": \"2025-03-25\", \"内容\": \"投资者自述：“债市之前跌的太多，果断减仓”，有投资者月内亏掉去年3万元收益\", \"来源\": \"时代周报报道中的投资者访谈\"},\n    {\"编号\": \"E2\", \"类型\": \"情绪帖\", \"日期\": \"2025-05-07\", \"内容\": \"社交平台热议降准降息，“公积金利率明天大降25个基点”等情绪化解读广泛传播\", \"来源\": \"雪球/时代周报\"},\n]\n\n# -- 扩展语料：以种子为原型改写，逐条标注来源编号，共31条（19 + 31 = 50） --\nEXTENSIONS: List[Tuple[str, str, str, str, str]] = [\n    # （编号, 类型, 日期, 内容, 来源编号）\n    (\"M1-扩1\", \"官媒解读\", \"2025-05-07\", \"【扩展·据M1改写】官媒报道：央行明确5月8日降息、5月15日降准的落地时间表\", \"M1\"),\n    (\"M1-扩2\", \"官媒解读\", \"2025-05-08\", \"【扩展·据M1改写】人民网跟进报道：一揽子货币政策工具集中落地\", \"M1\"),\n    (\"M1-扩3\", \"官媒解读\", \"2025-05-09\", \"【扩展·据M1改写】政策追踪：降准资金5月15日落地，银行间流动性保持合理充裕\", \"M1\"),\n    (\"M2-扩1\", \"官媒解读\", \"2025-07-07\", \"【扩展·据M2改写】半年观察：10年期国债收益率3月中旬触及1.9%后回落，7月初报1.64%\", \"M2\"),\n    (\"M2-扩2\", \"官媒解读\", \"2025-07-08\", \"【扩展·据M2改写】机构解读半年债市：收益率冲高回落，震荡市特征明显\", \"M2\"),\n    (\"M2-扩3\", \"官媒解读\", \"2025-07-09\", \"【扩展·据M2改写】债市半年盘点：一季度收益率上行约30BP，二季度起逐步修复\", \"M2\"),\n    (\"M3-扩1\", \"官媒解读\", \"2025-05-07\", \"【扩展·据M3改写】光明网报道：行长介绍降准降息政策安排，市场关注流动性投放节奏\", \"M3\"),\n    (\"M3-扩2\", \"官媒解读\", \"2025-05-08\", \"【扩展·据M3改写】官媒聚焦：降准降息“时间表”明确，释放稳增长信号\", \"M3\"),\n    (\"M4-扩1\", \"官媒解读\", \"2025-05-07\", \"【扩展·据M4改写】专家解读：适时降息有助于稳就业、稳企业、稳市场、稳预期\", \"M4\"),\n    (\"M4-扩2\", \"官媒解读\", \"2025-05-08\", \"【扩展·据M4改写】权威声音：货币政策加力逆周期调节，提振市场信心\", \"M4\"),\n    (\"M4-扩3\", \"官媒解读\", \"2025-05-09\", \"【扩展·据M4改写】评论：本轮降息兼顾内外均衡，传递清晰政策信号\", \"M4\"),\n    (\"R1-扩1\", \"市场报道\", \"2025-12-31\", \"【扩展·据R1改写】年度复盘：10年期国债收益率全年上行约25BP收于1.85%，1月最低1.59%\", \"R1\"),\n    (\"R1-扩2\", \"市场报道\", \"2025-12-31\", \"【扩展·据R1改写】2025债市全景：3月中旬收益率触及1.9%，10月央行重启国债买卖\", \"R1\"),\n    (\"R1-扩3\", \"市场报道\", \"2026-01-04\", \"【扩展·据R1改写】年度盘点：债市先抑后扬，4月3日单日下行近8BP\", \"R1\"),\n    (\"R2-扩1\", \"市场报道\", \"2025-03-03\", \"【扩展·据R2改写】债市观察：活跃券收益率上行至1.779%，资金面边际收敛\", \"R2\"),\n    (\"R2-扩2\", \"市场报道\", \"2025-03-04\", \"【扩展·据R2改写】2月债市回顾：10年期国债收益率累计上行11BP\", \"R2\"),\n    (\"R3-扩1\", \"市场报道\", \"2025-03-10\", \"【扩展·据R3改写】债市动态：10年期国债收益率升至12周高位1.7875%，宽松预期降温\", \"R3\"),\n    (\"R3-扩2\", \"市场报道\", \"2025-03-11\", \"【扩展·据R3改写】市场快评：收益率创阶段新高，机构提示波动风险\", \"R3\"),\n    (\"R4-扩1\", \"市场报道\", \"2025-03-25\", \"【扩展·据R4改写】债市波动加剧，10年期国债收益率重返1.81%关口\", \"R4\"),\n    (\"R4-扩2\", \"市场报道\", \"2025-03-26\", \"【扩展·据R4改写】周报观点：债市调整延续，关注跨季资金面\", \"R4\"),\n    (\"R4-扩3\", \"市场报道\", \"2025-03-27\", \"【扩展·据R4改写】市场综述：收益率快速上行后，配置盘开始关注入场时点\", \"R4\"),\n    (\"E1-扩1\", \"情绪帖\", \"2025-03-25\", \"【扩展·据E1改写】投资者发帖：“月内亏掉去年3万元收益，债基还能拿吗”\", \"E1\"),\n    (\"E1-扩2\", \"情绪帖\", \"2025-03-26\", \"【扩展·据E1改写】社交平台哀声一片：“债市跌太多，先减仓为敬”\", \"E1\"),\n    (\"E1-扩3\", \"情绪帖\", \"2025-03-26\", \"【扩展·据E1改写】讨论帖：债基回撤引发恐慌，评论区多空交锋\", \"E1\"),\n    (\"E1-扩4\", \"情绪帖\", \"2025-03-27\", \"【扩展·据E1改写】投资者自述亏损经历，跟风评论区吐槽理财收益缩水\", \"E1\"),\n    (\"E2-扩1\", \"情绪帖\", \"2025-05-07\", \"【扩展·据E2改写】社交平台刷屏：“公积金利率明天大降”，情绪化解读扩散\", \"E2\"),\n    (\"E2-扩2\", \"情绪帖\", \"2025-05-07\", \"【扩展·据E2改写】热议帖：降准降息“利好出尽”？评论区观点两极\", \"E2\"),\n    (\"E2-扩3\", \"情绪帖\", \"2025-05-08\", \"【扩展·据E2改写】自媒体惊呼“利率大降时代来临”，业内提示勿过度解读\", \"E2\"),\n    (\"E2-扩4\", \"情绪帖\", \"2025-05-08\", \"【扩展·据E2改写】段子刷屏：存款搬家冲上热搜，债市讨论热度骤升\", \"E2\"),\n    (\"E2-扩5\", \"情绪帖\", \"2025-05-09\", \"【扩展·据E2改写】评论区互怼：一边喊“债牛重来”，一边喊“快跑”\", \"E2\"),\n    (\"E2-扩6\", \"情绪帖\", \"2025-05-09\", \"【扩展·据E2改写】情绪帖：“闭眼买债基的日子回来了？”引发跟风讨论\", \"E2\"),\n]\n\n\ndef 构造语料() -> List[Dict[str, str]]:\n    \"\"\"组装50条模拟信息为消息列表（对应“某交易日债市波动信息流”）。\"\"\"\n    messages: List[Dict[str, str]] = []\n    for seed in SEEDS:\n        messages.append({\"role\": \"user\", \"content\": f\"[{seed['编号']}·{seed['类型']}·{seed['日期']}] {seed['内容']}（来源：{seed['来源']}）\"})\n    for ext_id, ext_type, ext_date, ext_content, seed_id in EXTENSIONS:\n        messages.append({\"role\": \"user\", \"content\": f\"[{ext_id}·{ext_type}·{ext_date}] {ext_content}（依据种子：{seed_id}）\"})\n    return messages\n\n\ndef 解析条目(message: Dict[str, str]) -> Dict[str, str]:\n    \"\"\"从消息文本中解析编号、类型、日期与正文。\"\"\"\n    header, _, body = message[\"content\"].partition(\"]\")\n    header = header.lstrip(\"[\")\n    编号, 类型, 日期 = (header.split(\"·\") + [\"\", \"\", \"\"])[:3]\n    return {\"编号\": 编号, \"类型\": 类型, \"日期\": 日期, \"正文\": body.strip()}\n\n\ndef 相关性打分(正文: str) -> int:\n    \"\"\"命中债市核心议题关键词的次数即为相关性得分。\"\"\"\n    return sum(1 for kw in RELEVANCE_KEYWORDS if kw in 正文)\n\n\ndef compact_context(messages: List[Dict[str, str]], budget: int) -> List[Dict[str, str]]:\n    # 去粗取精、去伪存真、由此及彼、由表及里\n    \"\"\"三层过滤：权威性分层 → 相关性打分 → 去噪摘要，在预算内保留关键信息。\"\"\"\n    entries = [解析条目(m) for m in messages]\n    total_chars = sum(len(e[\"正文\"]) for e in entries)\n\n    # 第一层：权威性分层——按类型权重与相关性综合排序\n    for e in entries:\n        e[\"权威性\"] = AUTHORITY_WEIGHT.get(e[\"类型\"], 0)\n        e[\"相关性\"] = 相关性打分(e[\"正文\"])\n        e[\"是否扩展\"] = 1 if \"-扩\" in e[\"编号\"] else 0\n    # 权威层级相同的情况下，种子原文恒优先于扩展语料，再比相关性\n    ranked = sorted(entries, key=lambda e: (e[\"权威性\"], -e[\"是否扩展\"], e[\"相关性\"]), reverse=True)\n\n    # 第二层：相关性打分 + 同源去重——同一种子编号的扩展语料只保留权威最高的一条\n    kept: List[Dict[str, str]] = []\n    seen_sources = set()\n    for e in ranked:\n        seed_id = e[\"编号\"].split(\"-\")[0]\n        if seed_id in seen_sources:\n            continue  # 重复传闻/同源改写，剔除\n        seen_sources.add(seed_id)\n        kept.append(e)\n\n    # 第三层：去噪摘要——在字符预算内填充，剔除情绪渲染类噪声\n    # 把握主要矛盾——在信息过载中保持战略清醒与政治定力\n    摘要行: List[str] = []\n    used = 0\n    剔除统计: Dict[str, int] = {}\n    for e in kept:\n        line = f\"{e['编号']}（{e['类型']}·{e['日期']}）：{e['正文']}\"\n        if used + len(line) > budget:\n            剔除统计[e[\"类型\"]] = 剔除统计.get(e[\"类型\"], 0) + 1\n            continue\n        if e[\"类型\"] == \"情绪帖\":\n            剔除统计[\"情绪帖（噪声）\"] = 剔除统计.get(\"情绪帖（噪声）\", 0) + 1\n            continue  # 情绪渲染不进入决策上下文\n        摘要行.append(line)\n        used += len(line)\n\n    压缩后 = \"\\n\".join(摘要行)\n    print(f\"[压缩对比] 压缩前：{len(entries)}条 / 约{total_chars}字符；\"\n          f\"预算：{budget}字符；压缩后：{len(摘要行)}条 / 约{used}字符\")\n    if 剔除统计:\n        detail = \"、\".join(f\"{k}{v}条\" for k, v in 剔除统计.items())\n        print(f\"[去噪剔除] {detail}\")\n    return [{\"role\": \"user\", \"content\": \"[压缩摘要]\\n\" + 压缩后}]\n\n\nif __name__ == \"__main__\":\n    print(\"s08: 债券投资研究场景——上下文压缩示例\")\n    print(\"数据出处：公开语料种子+逐条标注来源编号的扩展语料（脱敏整理）\\n\")\n\n    messages = 构造语料()\n    print(f\"已构造模拟信息流：{len(messages)}条（政策原文/官媒解读/市场报道/情绪帖四类混合）\\n\")\n\n    compressed = compact_context(messages, budget=1200)\n\n    print(\"\\n压缩后的上下文（保留政策要点与数据事实，剔除情绪噪声）：\")\n    print(\"-\" * 60)\n    print(compressed[0][\"content\"])\n    print(\"-\" * 60)\n    print(\"\\n验证完成：压缩结果保留了政策要点（降准、LPR、科技创新债券等）与数据事实\")\n    print(\"（10年期国债收益率关键点位），剔除了情绪渲染与同源重复传闻。\")\n",
+      "mapping": [
+        {
+          "tech": "权威性分层（政策原文>官媒解读>市场传闻>情绪帖）",
+          "ideology": "政治判断力——信息源也有“政治性权重”"
+        },
+        {
+          "tech": "相关性打分",
+          "ideology": "去粗取精——围绕主要矛盾筛选信息"
+        },
+        {
+          "tech": "去噪摘要",
+          "ideology": "去伪存真、由此及彼、由表及里"
+        },
+        {
+          "tech": "token 预算约束下的取舍",
+          "ideology": "有限认知资源下的战略清醒与政治定力"
+        }
+      ],
+      "scenario": {
+        "bank": "债券投资研究：某交易日50条混合信息流（政策原文、官媒解读、市场传闻、情绪帖）在预算内压缩为保留政策要点与关键点位的事实摘要。",
+        "securities": "晨会材料准备：研究员从 overnight 公告与舆情中筛出对组合有实质影响的三五条，剔除情绪渲染。",
+        "insurance": "资产负债匹配监测：从海量市场数据中滤除噪音，锁定影响久期匹配的关键利率信号。"
+      },
+      "ahaPrompt": "为信息源设置权威性权重时，你是否意识到调查研究方法论的“十六字诀”就是一套人工的上下文压缩算法？",
+      "ahaOptions": [
+        "去粗取精、去伪存真、由此及彼、由表及里",
+        "把握主要矛盾——在信息过载中保持战略清醒",
+        "实事求是——权威性分层是政治判断力的信息科学版",
+        "谣言止于智者，噪声止于权重",
+        "战略定力——情绪帖最先被剔除不是冷漠而是清醒",
+        "兼听则明、偏信则暗——多源交叉验证",
+        "由表及里——预算约束逼着抓本质",
+        "没有共鸣"
+      ]
+    },
+    {
+      "id": "s5",
+      "title": "Subagents：集体主义与组织纪律性",
+      "source": "",
+      "codePath": "s5_loan_review_team/loan_review_team.py",
+      "code": "#!/usr/bin/env python3\n# -*- coding: utf-8 -*-\n\"\"\"\nloan_review_team.py - “小微企业贷款专项排查”多智能体协作示例（s22_loan_review_team 目录文件）\n\n参照“子智能体使用全新 messages 列表、上下文隔离”的经典实现，\n搭建主Agent与三个子Agent（公司金融部、风险管理部、运营管理部）的协作框架：\n任务隔离、协议消息通信、主Agent集中裁决。\n\n数据依据（公开罚单脱敏整理，禁止编造）：\n五类违规情形（脱敏代号E1—E5）取自监管公开罚单披露的违规形态：\n- E1 划型不实（某城商行被没罚合计1495.13万元，2024年1月，山东监管局）；\n- E2 贷款资金回流滞留、挪用购买理财（某股份制银行杭州分行被罚款380万元，2024年2月，浙江监管局）；\n- E3 借款人与实际用款人不一致（2024年一季度“贷款三查不尽职”罚单129张、金额5885万元，普华永道分析）；\n- E4 贷后管理缺失、风险分类不准确（某城商行合计被罚465万元、10名责任人被追责，2025-05-14，河北监管局）；\n- E5 正常经营小微企业对照组（依据：《商业银行小企业授信工作尽职指引（试行）》2006年）；\n- 冲突裁决场景原型：互联网银行因“三查”不到位被罚款105万元（2025-11-21，浙江监管局），\n  媒体指出小微领域“过度依赖模型快速放款、弱化实质审查”的行业现象。\n\n用法：\n    python s22_loan_review_team/loan_review_team.py\n\"\"\"\n\nfrom concurrent.futures import ThreadPoolExecutor\nfrom typing import Dict, List\n\n\n# -- 排查对象（脱敏代号E1—E5，属性取自S5表登记的违规形态，未登记属性一律不虚构） --\nE_RECORDS: Dict[str, Dict[str, object]] = {\n    \"E1企业\": {\"划型不实\": True, \"设定情形\": \"借用小微企业业务流程为大中型企业办理授信\"},\n    \"E2企业\": {\"资金回流\": True, \"还款流水正常\": True,\n             \"设定情形\": \"贷款资金回流并长期滞留于借款人账户、挪用购买理财\"},\n    \"E3企业\": {\"用款人不一致\": True, \"设定情形\": \"借款人与实际用款人不一致\"},\n    \"E4企业\": {\"贷后管理缺失\": True, \"设定情形\": \"贷后管理缺失、风险分类不准确\"},\n    \"E5企业\": {\"正常对照组\": True, \"设定情形\": \"正常经营的小微企业：货款回笼、纳税、诚信记录良好\"},\n}\n\n\n# -- 协议层：消息格式 sender / intent / payload / requires_consensus，字段值使用中文 --\nclass 协议消息:\n    # 协议通信——组织共同语言\n    \"\"\"子智能体之间唯一的通信方式：不共享内存，只传递协议消息。\"\"\"\n\n    def __init__(self, sender: str, intent: str, payload: str,\n                 requires_consensus: bool = False) -> None:\n        self.sender = sender          # 发送方：主Agent / 部门名称\n        self.intent = intent          # 意图：任务分派 / 排查结论 / 陈述依据 / 集中裁决\n        self.payload = payload        # 内容：中文文本\n        self.requires_consensus = requires_consensus  # 是否要求主Agent集中裁决\n\n    def to_dict(self) -> Dict[str, object]:\n        return {\n            \"sender\": self.sender,\n            \"intent\": self.intent,\n            \"payload\": self.payload,\n            \"requires_consensus\": self.requires_consensus,\n        }\n\n    def __str__(self) -> str:\n        flag = \"；需集中裁决\" if self.requires_consensus else \"\"\n        return f\"[协议消息] 发送方：{self.sender}；意图：{self.intent}；内容：{self.payload}{flag}\"\n\n\n# -- 子智能体：全新 messages 列表，任务隔离，仅通过协议消息通信 --\nclass 子智能体:\n    def __init__(self, name: str, mandate: str) -> None:\n        self.name = name\n        self.mandate = mandate\n        self.messages: List[Dict[str, str]] = []  # 任务隔离——分工负责：每个子Agent独享上下文\n        self.knowledge = \"\"                        # 本部门可见的内部工作记录，不与其他子Agent共享\n\n    def 排查(self, msg: 协议消息) -> 协议消息:\n        \"\"\"接收主Agent分派的排查任务，返回本部门结论（协议消息）。\"\"\"\n        self.messages.append({\"role\": \"user\", \"content\": str(msg)})\n        conclusion = self.形成结论()\n        reply = 协议消息(sender=self.name, intent=\"排查结论\", payload=conclusion,\n                         requires_consensus=self.要求裁决(conclusion))\n        self.messages.append({\"role\": \"assistant\", \"content\": str(reply)})\n        return reply\n\n    def 陈述依据(self, msg: 协议消息) -> 协议消息:\n        \"\"\"集中裁决前的“充分讨论”环节：陈述本部门结论的制度与事实依据。\"\"\"\n        self.messages.append({\"role\": \"user\", \"content\": str(msg)})\n        reply = 协议消息(sender=self.name, intent=\"依据陈述\", payload=self.依据())\n        self.messages.append({\"role\": \"assistant\", \"content\": str(reply)})\n        return reply\n\n    def 形成结论(self) -> str:  # pragma: no cover - 由子类实现\n        raise NotImplementedError\n\n    def 要求裁决(self, conclusion: str) -> bool:\n        return False\n\n    def 依据(self) -> str:  # pragma: no cover - 由子类实现\n        raise NotImplementedError\n\n\nclass 公司金融部(子智能体):\n    \"\"\"从客户经营与流水视角排查：关注还款流水与续贷价值。\"\"\"\n\n    def __init__(self) -> None:\n        super().__init__(\"公司金融部\", \"依据客户经营与还款流水评估续贷安排\")\n\n    def 形成结论(self) -> str:\n        findings = []\n        for name, rec in E_RECORDS.items():\n            if rec.get(\"正常对照组\"):\n                findings.append(f\"{name}：货款回笼、纳税、诚信记录良好，维持正常授信\")\n            elif rec.get(\"还款流水正常\"):\n                findings.append(f\"{name}：还款流水正常，依据流水表现建议续贷\")\n            else:\n                findings.append(f\"{name}：客户经营层面存在疑点，建议风控部门重点关注\")\n        return \"；\".join(findings)\n\n    def 要求裁决(self, conclusion: str) -> bool:\n        return \"建议续贷\" in conclusion  # 与风控结论相反时主动要求主Agent裁决\n\n    def 依据(self) -> str:\n        return (\"依据：本部门掌握的对公还款流水显示E2企业还款记录正常；\"\n                \"但本部门仅掌握流水维度信息，不具备资金流向穿透核查能力。\")\n\n\nclass 风险管理部(子智能体):\n    \"\"\"从资金流向与风险信号视角排查：关注资金回流、挪用与分类准确性。\"\"\"\n\n    def __init__(self) -> None:\n        super().__init__(\"风险管理部\", \"穿透核查资金流向与风险分类准确性\")\n\n    def 形成结论(self) -> str:\n        findings = []\n        for name, rec in E_RECORDS.items():\n            if rec.get(\"划型不实\"):\n                findings.append(f\"{name}：划型不实，大中型企业套用小微流程，判定违规\")\n            elif rec.get(\"资金回流\"):\n                findings.append(f\"{name}：发现资金回流并滞留痕迹、疑似挪用购买理财，\"\n                                f\"结论为暂停续贷并启动贷后检查（原型：某股份制银行杭州分行\"\n                                f\"同类违规被罚款380万元，2024年2月，浙江监管局）\")\n            elif rec.get(\"用款人不一致\"):\n                findings.append(f\"{name}：借款人与实际用款人不一致，判定违规\")\n            elif rec.get(\"贷后管理缺失\"):\n                findings.append(f\"{name}：贷后管理缺失、风险分类不准确，判定违规\")\n            else:\n                findings.append(f\"{name}：未发现风险信号\")\n        return \"；\".join(findings)\n\n    def 要求裁决(self, conclusion: str) -> bool:\n        return \"暂停续贷\" in conclusion  # 与公司金融部结论相反，要求集中裁决\n\n    def 依据(self) -> str:\n        return (\"依据：资金流向穿透核查发现E2企业贷款资金回流并长期滞留于借款人账户；\"\n                \"监管公开案例显示同类违规已被处罚（罚款380万元）；\"\n                \"媒体已指出小微领域“过度依赖模型快速放款、弱化实质审查”的行业现象\"\n                \"（互联网银行“三查”不到位被罚105万元，2025-11-21，浙江监管局）。\")\n\n\nclass 运营管理部(子智能体):\n    \"\"\"从资料完整性与流程合规视角排查：核对授信档案与操作合规。\"\"\"\n\n    def __init__(self) -> None:\n        super().__init__(\"运营管理部\", \"核对授信资料完整性与流程操作合规\")\n\n    def 形成结论(self) -> str:\n        findings = []\n        for name, rec in E_RECORDS.items():\n            if rec.get(\"正常对照组\"):\n                findings.append(f\"{name}：资料齐备、流程合规\")\n            else:\n                findings.append(f\"{name}：设定情形涉及流程违规（{rec['设定情形']}），\"\n                                f\"档案记录需补正并纳入整改台账\")\n        return \"；\".join(findings)\n\n    def 依据(self) -> str:\n        return \"依据：运营条线授信档案与操作流程核对结果。\"\n\n\n# -- 主Agent：拆解任务、并行调度、汇总裁决 --\nclass 主Agent:\n    def __init__(self, subagents: List[子智能体]) -> None:\n        self.subagents = subagents\n        self.inbox: List[协议消息] = []\n\n    def 拆解任务(self) -> str:\n        return (\"排查任务：对E1—E5五户小微企业贷款开展专项排查。\"\n                \"公司金融部评估客户经营与流水；风险管理部穿透核查资金流向；\"\n                \"运营管理部核对资料与流程合规。各部门仅依据本部门职责形成结论，\"\n                \"结论相反时标记requires_consensus，由主Agent集中裁决。\")\n\n    def 并行执行(self) -> List[协议消息]:\n        \"\"\"三个子Agent并行执行排查，仅通过协议消息回传结果。\"\"\"\n        task = 协议消息(sender=\"主Agent\", intent=\"任务分派\", payload=self.拆解任务())\n        with ThreadPoolExecutor(max_workers=len(self.subagents)) as pool:\n            futures = {pool.submit(agent.排查, task): agent for agent in self.subagents}\n            replies = [f.result() for f in futures]\n        self.inbox.extend(replies)\n        return replies\n\n    def 汇总裁决(self, replies: List[协议消息]) -> str:\n        # 主Agent协调——集中统一领导\n        \"\"\"汇总各部门结论；发现相反结论时先充分讨论，再集中裁决。\"\"\"\n        print(\"\\n【主Agent】收到各部门协议消息：\")\n        conflict_customers = set()\n        for reply in replies:\n            print(f\"  {reply}\")\n            if reply.requires_consensus:\n                conflict_customers.add(reply.sender)\n\n        if not conflict_customers:\n            return \"各部门结论一致，按多数意见形成排查结论。\"\n\n        print(\"\\n【主Agent】检测到相反结论（E2企业：续贷 vs 暂停续贷），启动充分讨论：\")\n        for agent in self.subagents:\n            if agent.name in conflict_customers:\n                basis = agent.陈述依据(协议消息(sender=\"主Agent\", intent=\"要求陈述依据\",\n                                              payload=\"请陈述你对E2企业结论的事实与制度依据\"))\n                print(f\"  {basis}\")\n                self.inbox.append(basis)\n\n        ruling = (\n            \"集中裁决（主Agent）：采纳风险管理部结论——E2企业暂停续贷并启动贷后检查。\"\n            \"理由：资金流向穿透核查属于更高维度的风险证据，流水正常不能排除资金回流与挪用；\"\n            \"监管公开案例已表明同类违规被处罚的确定性。公司金融部的续贷建议予以保留，\"\n            \"待贷后检查排除风险后再行审议。\"\n        )\n        print(f\"\\n【主Agent】{ruling}\")\n        self.inbox.append(协议消息(sender=\"主Agent\", intent=\"集中裁决\", payload=ruling))\n        return ruling\n\n\nif __name__ == \"__main__\":\n    print(\"s06: 小微企业贷款专项排查——多智能体协作示例\")\n    print(\"数据出处：监管公开罚单（脱敏代号E1—E5）\\n\")\n\n    team = [公司金融部(), 风险管理部(), 运营管理部()]\n    lead = 主Agent(team)\n\n    print(\"【主Agent】任务拆解：\")\n    print(f\"  {lead.拆解任务()}\\n\")\n    print(\"【主Agent】并行派发排查任务（三个子Agent独立执行、协议消息回传）……\")\n\n    replies = lead.并行执行()\n    lead.汇总裁决(replies)\n\n    print(\"\\n验证完成：任务隔离、协议通信、并行执行与冲突集中裁决流程全部走通。\")\n    print(\"（每个子Agent仅持有本部门messages列表，全程未共享内存。）\")\n",
+      "mapping": [
+        {
+          "tech": "任务隔离（独立 messages 列表）",
+          "ideology": "分工负责——各司其职、各尽其责"
+        },
+        {
+          "tech": "协议通信（sender/intent/payload/requires_consensus）",
+          "ideology": "民主集中制——组织的协议层与共同语言"
+        },
+        {
+          "tech": "主 Agent 集中裁决",
+          "ideology": "集中统一领导——“充分讨论、集中裁决”"
+        },
+        {
+          "tech": "并行执行",
+          "ideology": "协同作战——整体合力大于个体之和"
+        }
+      ],
+      "scenario": {
+        "bank": "小微企业贷款专项排查：公司金融部、风险管理部、运营管理部三个子智能体并行排查E1—E5，对E2给出相反结论时由主Agent裁决采纳风控意见。",
+        "securities": "联合尽调：行业组、财务组、法务组并行核查，分歧提交项目组集中讨论裁决。",
+        "insurance": "反欺诈联合调查：调查、核保、理赔三个条线分头取证，结论由调查组长汇总裁决。"
+      },
+      "ahaPrompt": "调试两个子Agent冲突裁决逻辑时，你是否理解了跨部门协作为什么需要“共同语言”和集中裁决？",
+      "ahaOptions": [
+        "民主集中制——充分讨论、集中裁决",
+        "集体主义——局部最优服从全局最优",
+        "组织纪律性——协议就是共同语言、纪律就是接口",
+        "分工负责、各司其职——任务隔离的制度价值",
+        "团结—批评—团结——冲突裁决的正向循环",
+        "上下同欲者胜——目标一致才能并行不悖",
+        "集中指导下的民主，民主基础上的集中",
+        "没有共鸣"
+      ]
+    },
+    {
+      "id": "s6",
+      "title": "Skills 与记忆系统：学习型党组织建设",
+      "source": "",
+      "codePath": "s6_org_skill_loader/org_skill_loader.py",
+      "code": "#!/usr/bin/env python3\n# -*- coding: utf-8 -*-\n\"\"\"\norg_skill_loader.py - “组织知识沉淀”主题的 Skills 按需加载示例（s23_org_skill_loader 目录文件）\n\n参照 SkillLoader 的“技能目录—按需注入”经典机制：\n启动时只加载技能目录（名称+摘要），执行具体任务时才将匹配的技能全文\n注入系统提示词，避免全量加载占用上下文窗口。\n\n技能文件：本目录下 org_skills/ 中三个中文技能模块\n（credit_expert.md / risk_checklist.md / compliance_rules.md），\n条目出处见监管公开规则原文提炼，禁止编造。\n\n用法：\n    python s23_org_skill_loader/org_skill_loader.py\n\"\"\"\n\nimport os\nimport re\nfrom pathlib import Path\nfrom typing import Dict, List\n\nORG_SKILLS_DIR = Path(__file__).resolve().parent / \"org_skills\"\n\n# 组织Skills——把个人经验沉淀为组织能力\n# 技能目录：任务类型关键词 -> 技能名称，按需匹配注入\nTASK_SKILL_MAP = {\n    \"展业\": \"credit_expert\",\n    \"客户开发\": \"credit_expert\",\n    \"调查报告\": \"credit_expert\",\n    \"风险\": \"risk_checklist\",\n    \"预警\": \"risk_checklist\",\n    \"排查\": \"risk_checklist\",\n    \"审查\": \"risk_checklist\",\n    \"合规\": \"compliance_rules\",\n    \"免责\": \"compliance_rules\",\n    \"评议\": \"compliance_rules\",\n}\n\n\nclass 组织技能加载器:\n    \"\"\"参照 code.py SkillLoader 的目录—注入机制（简化的本地实现）。\"\"\"\n\n    def __init__(self, skills_dir: Path) -> None:\n        self.skills_dir = skills_dir\n        self.skills: Dict[str, Dict[str, str]] = {}\n        self.scan()\n\n    @staticmethod\n    def 解析前言(text: str) -> Dict[str, str]:\n        \"\"\"解析 Markdown 文件头部 --- 之间的 name/description 字段。\"\"\"\n        meta: Dict[str, str] = {}\n        if not text.startswith(\"---\"):\n            return meta\n        closing = text.find(\"\\n---\", 3)\n        if closing == -1:\n            return meta\n        for line in text[3:closing].splitlines():\n            key, _, value = line.partition(\":\")\n            if key.strip() in (\"name\", \"description\"):\n                meta[key.strip()] = value.strip()\n        return meta\n\n    def scan(self) -> None:\n        self.skills.clear()\n        if not self.skills_dir.exists():\n            return\n        for md in sorted(self.skills_dir.glob(\"*.md\")):\n            content = md.read_text(encoding=\"utf-8\")\n            meta = self.解析前言(content)\n            name = meta.get(\"name\") or md.stem\n            self.skills[name] = {\n                \"名称\": name,\n                \"摘要\": meta.get(\"description\", \"\"),\n                \"全文\": content,\n            }\n\n    def 目录(self) -> str:\n        \"\"\"技能目录：仅名称与摘要，常驻系统提示词，体积小。\"\"\"\n        if not self.skills:\n            return \"（未发现技能模块）\"\n        return \"\\n\".join(f\"- {s['名称']}：{s['摘要']}\" for s in self.skills.values())\n\n    def 匹配技能(self, 任务: str) -> List[str]:\n        \"\"\"学习型组织——红色基因与专业能力的代际传承：按任务类型按需加载。\"\"\"\n        matched = []\n        for keyword, skill in TASK_SKILL_MAP.items():\n            if keyword in 任务 and skill in self.skills and skill not in matched:\n                matched.append(skill)\n        return matched\n\n    def 注入(self, 基础提示词: str, 任务: str) -> str:\n        \"\"\"将匹配到的技能全文注入系统提示词，返回注入后的提示词。\"\"\"\n        matched = self.匹配技能(任务)\n        if not matched:\n            return 基础提示词\n        blocks = [f\"<已加载组织技能：{name}>\\n{self.skills[name]['全文']}\\n</已加载组织技能>\"\n                  for name in matched]\n        return 基础提示词 + \"\\n\\n\" + \"\\n\\n\".join(blocks)\n\n\nBASE_SYSTEM_PROMPT = \"你是一名银行信贷审查助手，依据系统提供的组织技能完成审查任务。\"\n\n\ndef 模拟执行(提示词: str, 任务: str) -> str:\n    \"\"\"模拟一次贷前审查执行：提示词中已注入的技能会影响输出内容。\"\"\"\n    if \"risk_checklist\" in 提示词:\n        return (f\"【审查输出（已加载技能）】任务：{任务}\\n\"\n                \"  · 核对货款回笼周期与纳税记录（风险识别清单·非财务信息提示）\\n\"\n                \"  · 排查借款人与实际用款人是否一致（高频处罚事由清单）\\n\"\n                \"  · 结论：未发现预警信号，建议正常受理，并留存核查底稿\")\n    return (f\"【审查输出（未加载技能）】任务：{任务}\\n\"\n            \"  · 依据常规流程完成形式审查\\n\"\n            \"  · 结论：材料齐全，予以受理\")\n\n\nif __name__ == \"__main__\":\n    print(\"s07: 组织知识沉淀——Skills 按需加载示例\")\n    print(\"数据出处：监管公开规则原文提炼\\n\")\n\n    loader = 组织技能加载器(ORG_SKILLS_DIR)\n    print(f\"技能目录已扫描：{len(loader.skills)} 个模块（仅加载名称与摘要）\")\n    print(loader.目录())\n    print()\n\n    任务 = \"小微企业贷前审查\"\n    print(f\"演示任务：{任务}\\n\")\n\n    # 场景一：不加载技能\n    提示词_未加载 = BASE_SYSTEM_PROMPT\n    print(f\"场景一：不加载技能（提示词约 {len(提示词_未加载)} 字符）\")\n    print(模拟执行(提示词_未加载, 任务))\n    print()\n\n    # 场景二：按需注入技能\n    提示词_已加载 = loader.注入(BASE_SYSTEM_PROMPT, 任务)\n    print(f\"场景二：按需注入匹配技能（提示词约 {len(提示词_已加载)} 字符，\"\n          f\"已注入：{'、'.join(loader.匹配技能(任务))}）\")\n    print(模拟执行(提示词_已加载, 任务))\n    print()\n\n    全量 = \"\\n\\n\".join(s[\"全文\"] for s in loader.skills.values())\n    print(f\"对比：若全量加载三个技能需约 {len(BASE_SYSTEM_PROMPT) + len(全量)} 字符；\"\n          f\"按需注入仅需约 {len(提示词_已加载)} 字符，上下文占用显著降低。\")\n    print(\"\\n验证完成：按需加载机制生效，加载与不加载的输出差异明确。\")\n",
+      "mapping": [
+        {
+          "tech": "技能模块（SKILL.md）",
+          "ideology": "组织知识沉淀——把个人经验转化为组织能力"
+        },
+        {
+          "tech": "按需加载（load on demand）",
+          "ideology": "学习型组织——学以致用、急用先学"
+        },
+        {
+          "tech": "目录常驻、全文按需注入",
+          "ideology": "知识管理——索引在手、用时调取"
+        },
+        {
+          "tech": "记忆固化与复用",
+          "ideology": "红色基因与专业能力的代际传承"
+        }
+      ],
+      "scenario": {
+        "bank": "信贷审查要点知识库：骨干客户经理的展业经验、风险识别清单、合规审查要点固化为三个技能模块，新人贷前审查按需加载。",
+        "securities": "研究平台知识库：资深分析师的行业分析框架沉淀为可复用模块，初级研究员按需调用。",
+        "insurance": "核保规则库：核保专家的经验固化为技能文件，分支机构核保员按需加载，尺度全系统一致。"
+      },
+      "ahaPrompt": "把骨干员工的审查要点写成可插拔模块时，你是否体会到“传帮带”数字化的意义？",
+      "ahaOptions": [
+        "建设学习型组织——把个人经验沉淀为组织能力",
+        "传帮带数字化——骨干经验不随人员流动流失",
+        "活到老、学到老——按需加载就是“急用先学”",
+        "红色基因的代际传承——知识沉淀即基因延续",
+        "三人行必有我师——技能库是组织共同的师傅",
+        "复盘是最好的学习——写技能模块本身就是复盘",
+        "工欲善其事、必先利其器——专业能力即政治能力",
+        "没有共鸣"
+      ]
+    },
+    {
+      "id": "s7",
+      "title": "Feedback Layer：批评和自我批评的闭环机制",
+      "source": "",
+      "codePath": "s7_audit_repair/audit_repair.py",
+      "code": "#!/usr/bin/env python3\n# -*- coding: utf-8 -*-\n\"\"\"\naudit_repair.py - “测试—失败—诊断—修复”闭环示例（s24_audit_repair 目录文件）\n\n复用任务记录与磁盘持久化机制（优先 from code import，本目录自带\nlessons_memory.py 时亦然），对金融场景智能体的输出设置断言（如“营销文案\n必须包含风险提示”“授信结论必须附适当性评估”），故意制造一次失败，演示\n异常捕获、日志回溯与自修复的完整流程；每次失败通过本目录\nlessons_memory.py 固化进错题本，并在后续运行中作为前置校验项自动加载。\n\n反面用例出处：金融管理部门公开的\n消费者权益保护通报案例，禁止编造）：\n- F1 夸大收益、混淆自营与代销（银保监会消保局2021年第3号通报）；\n- F2 风险揭示不足（银监会2008年通报）；\n- F3 收益率展示虚高、口径不一致（2024年8月每日经济新闻报道）。\n\n用法：\n    python s24_audit_repair/audit_repair.py\n\"\"\"\n\nimport os\nimport sys\nimport tempfile\nimport traceback\nfrom pathlib import Path\nfrom typing import Callable, Dict, List, Optional\n\n# -- 任务记录与磁盘持久化：环境具备原项目依赖时直接 import，否则使用接口一致的退化实现 --\ntry:\n    from code import Task, TaskStore  # noqa: F401  复用原项目任务记录与磁盘持久化机制\nexcept Exception:  # 原模块依赖 anthropic 与 MODEL_ID 环境变量，缺失时启用本地退化版本\n    import json\n    import secrets\n    from dataclasses import asdict, dataclass\n\n    @dataclass\n    class Task:\n        id: str\n        subject: str\n        description: str\n        status: str\n        owner: Optional[str]\n        blockedBy: list\n\n    class TaskStore:\n        \"\"\"与 code.py 中 TaskStore 接口一致的退化实现（JSON 磁盘持久化）。\"\"\"\n\n        def __init__(self, directory: Path):\n            self.directory = directory\n\n        def create(self, subject: str, description: str = \"\") -> Task:\n            self.directory.mkdir(parents=True, exist_ok=True)\n            task = Task(id=f\"task_{secrets.token_hex(4)}\", subject=subject,\n                        description=description, status=\"pending\",\n                        owner=None, blockedBy=[])\n            self.save(task)\n            return task\n\n        def save(self, task: Task) -> None:\n            self.directory.mkdir(parents=True, exist_ok=True)\n            (self.directory / f\"{task.id}.json\").write_text(\n                json.dumps(asdict(task), ensure_ascii=False, indent=2), encoding=\"utf-8\")\n\n        def load(self, task_id: str) -> Task:\n            data = json.loads((self.directory / f\"{task_id}.json\").read_text(encoding=\"utf-8\"))\n            return Task(**data)\n\n        def list(self) -> list:\n            if not self.directory.exists():\n                return []\n            return [self.load(path.stem) for path in sorted(self.directory.glob(\"task_*.json\"))]\n\n# 本目录自带的错题本记忆机制\nsys.path.append(os.path.dirname(os.path.abspath(__file__)))\nfrom lessons_memory import 前置校验, 固化教训  # noqa: E402\n\n\n# -- 断言规则：反面用例均为金融管理部门公开通报案例 --\nASSERTIONS: List[Dict[str, object]] = [\n    {\n        \"名称\": \"营销文案必须包含风险提示\",\n        \"检查\": lambda 输出: \"风险提示\" in 输出,\n        \"反面用例\": \"F1（片面夸大收益、混淆自营理财与代销产品，银保监会消保局2021年第3号通报）、\"\n                  \"F2（风险揭示不足、过分强调预期收益率，银监会2008年通报）\",\n    },\n    {\n        \"名称\": \"授信结论必须附适当性评估\",\n        \"检查\": lambda 输出: \"适当性评估\" in 输出,\n        \"反面用例\": \"F2（客户风险偏好评估流于形式）\",\n    },\n    {\n        \"名称\": \"收益展示必须口径一致\",\n        \"检查\": lambda 输出: \"成立以来\" not in 输出 or \"近1个月\" in 输出,\n        \"反面用例\": \"F3（App展示成立以来年化超5%，近1个月实际仅约1.6%，2024年8月报道）\",\n    },\n]\n\n\ndef 执行断言(输出: str, 断言规则: Dict[str, object]) -> None:\n    # 反馈不是否定，而是系统优化的必要条件\n    \"\"\"单条断言：不通过即抛出 AssertionError，交由闭环捕获处理。\"\"\"\n    检查: Callable[[str], bool] = 断言规则[\"检查\"]  # type: ignore[assignment]\n    if not 检查(输出):\n        raise AssertionError(f\"断言未通过：{断言规则['名称']}（反面用例：{断言规则['反面用例']}）\")\n\n\ndef 生成营销文案(含风险提示: bool = True) -> str:\n    \"\"\"模拟金融场景Agent生成营销文案；含风险提示=False 用于演示故意失败。\"\"\"\n    文案 = \"本期理财产品业绩比较基准3.2%，额度有限，先到先得。\"\n    if 含风险提示:\n        文案 += \"【风险提示】理财非存款，产品有风险，投资须谨慎；\"\n        文案 += \"业绩比较基准不代表收益承诺，实际收益以产品到期兑付为准（口径：成立以来与近1个月并列展示）。\"\n    return 文案\n\n\ndef 生成授信结论(含适当性评估: bool = True) -> str:\n    \"\"\"模拟金融场景Agent输出授信结论。\"\"\"\n    结论 = \"授信结论：B公司补充材料后再议。\"\n    if 含适当性评估:\n        结论 += \"客户适当性评估：已核对客户风险承受能力与授信用途匹配性。\"\n    return 结论\n\n\ndef 运行闭环审计(store: TaskStore) -> None:\n    \"\"\"完整演示“测试—失败—诊断—修复”闭环。\"\"\"\n    print(\"【闭环审计】创建审计任务并持久化……\")\n    task = store.create(\"营销文案合规断言审计\", \"对Agent输出执行三条合规断言\")\n    print(f\"  任务已落盘：{task.id}（status={task.status}）\")\n\n    agents = [\n        (\"营销文案Agent\", 生成营销文案, {\"含风险提示\": True}, [ASSERTIONS[0], ASSERTIONS[2]]),\n        (\"授信结论Agent\", 生成授信结论, {\"含适当性评估\": True}, [ASSERTIONS[1]]),\n    ]\n\n    for 名称, 生成函数, 参数, 适用断言 in agents:\n        print(f\"\\n【正常路径】{名称} 输出自检：\")\n        输出 = 生成函数(**参数)\n        for 规则 in 适用断言:\n            执行断言(输出, 规则)\n            print(f\"  ✓ {规则['名称']}\")\n\n    print(\"\\n【故意制造失败】临时移除营销文案的风险提示输出：\")\n    store.save(Task(id=task.id, subject=task.subject, description=task.description,\n                    status=\"in_progress\", owner=\"audit_agent\", blockedBy=[]))\n    try:\n        问题输出 = 生成营销文案(含风险提示=False)\n        for 规则 in ASSERTIONS:\n            执行断言(问题输出, 规则)\n        print(\"  未捕获到失败（不应到达此处）\")\n    except AssertionError as error:\n        print(f\"  ✗ 异常捕获：{error}\")\n        print(\"  【日志回溯】\")\n        for line in traceback.format_exc().strip().splitlines()[-3:]:\n            print(f\"    {line}\")\n\n        print(\"\\n【自修复】自动恢复风险提示并重新断言：\")\n        修复输出 = 生成营销文案(含风险提示=True)\n        执行断言(修复输出, ASSERTIONS[0])\n        执行断言(修复输出, ASSERTIONS[2])\n        print(\"  ✓ 修复后断言全部通过\")\n        store.save(Task(id=task.id, subject=task.subject, description=task.description,\n                        status=\"completed\", owner=\"audit_agent\", blockedBy=[]))\n        print(f\"  任务状态已更新：completed（{task.id}）\")\n\n        print(\"\\n【错题本固化】将本次失败写入 memory/lessons.md：\")\n        路径 = 固化教训(\n            标题=\"营销文案缺失风险提示\",\n            失败原因=\"生成环节临时移除了风险提示输出，触发断言“营销文案必须包含风险提示”\",\n            教训=\"营销文案生成必须默认附带风险提示，且收益展示须成立以来与近1个月口径并列；\"\n                 \"合规断言前置到输出环节，而非事后抽查\",\n            反面用例编号=\"F1、F2、F3（公开通报案例脱敏编号）\",\n        )\n        print(f\"  已固化：{Path(路径).relative_to(Path.cwd()) if 路径.is_relative_to(Path.cwd()) else 路径}\")\n\n\nif __name__ == \"__main__\":\n    print(\"s10: 测试—失败—诊断—修复闭环 + 错题本记忆\")\n    print(\"数据出处：公开消保通报案例（脱敏编号F1—F3）\\n\")\n\n    print(\"【前置校验】自动加载错题本历史教训：\")\n    lessons = 前置校验()\n    if lessons:\n        for lesson in lessons:\n            print(f\"  · 历史教训：{lesson['标题']}（{lesson.get('反面用例编号', '未登记')}）\")\n    else:\n        print(\"  · 错题本暂无历史记录，本次运行为首轮审计\")\n\n    with tempfile.TemporaryDirectory(prefix=\"audit_tasks_\") as tmp:\n        运行闭环审计(TaskStore(Path(tmp)))\n\n    print(\"\\n验证完成：“失败—记录—前置校验—修复”完整闭环走通。\")\n",
+      "mapping": [
+        {
+          "tech": "断言（assertion）",
+          "ideology": "批评和自我批评——反馈不是否定，而是系统优化的必要条件"
+        },
+        {
+          "tech": "异常捕获与日志回溯",
+          "ideology": "审计监督——问题显性化、责任可追溯"
+        },
+        {
+          "tech": "自修复",
+          "ideology": "知错即改、立行立改"
+        },
+        {
+          "tech": "错题本（lessons.md 记忆固化）",
+          "ideology": "复盘机制——把每一次偏差转化为下一次正确的前置条件"
+        }
+      ],
+      "scenario": {
+        "bank": "合规审计复盘：营销文案断言“必须包含风险提示”（反面用例F1夸大收益、F2风险揭示不足），失败自动记入错题本并在后续运行前置加载。",
+        "securities": "适当性管理校验：投顾建议必须附适当性评估断言，违规案例写入团队复盘库。",
+        "insurance": "销售行为质检：话术断言“不得夸大收益”，质检失败自动回流培训题库。"
+      },
+      "ahaPrompt": "看着Agent从失败日志中自动修复问题时，你如何理解“批评和自我批评是优良传统”？",
+      "ahaOptions": [
+        "批评和自我批评——反馈不是否定而是系统优化的必要条件",
+        "惩前毖后、治病救人——对同志的真正爱护",
+        "知错能改，善莫大焉——错题本让偏差成为正确的前置",
+        "失败是成功之母——每一次异常都是组织的免疫力",
+        "闻过则喜——断言前置比事后抽查更有制度善意",
+        "前事不忘、后事之师——日志回溯就是自我批评的技术形态",
+        "抓早抓小、防微杜渐——修复发生在萌芽状态",
+        "没有共鸣"
+      ]
+    },
+    {
+      "id": "s8",
+      "title": "Worktree Isolation：底线思维与廉洁从业",
+      "source": "",
+      "codePath": "s8_guardrail_isolation/guardrail_isolation.py",
+      "code": "#!/usr/bin/env python3\n# -*- coding: utf-8 -*-\n\"\"\"\nguardrail_isolation.py - 带完整 Guardrails 的合规工作流隔离示例（s25_guardrail_isolation 目录文件）\n\n在集成 Harness 中配置三层隔离，模拟一次“越权导出客户数据到个人目录”操作，\n验证三层隔离机制的阻断与告警是否生效。\n\n三层隔离（制度对照出处：公开处罚与法规脱敏整理，禁止编造）：\n- 环境沙箱：禁止访问生产数据目录；\n- 工作树隔离：高风险操作仅在隔离分支执行；\n- 协议层白名单：仅允许预定义API调用（规则来源：《征信业管理条例》\n  “查询个人信息须取得本人书面授权”）。\n现实原型：某国有大行深圳市分行“未按规定开展信用信息采集与查询管理”\n被罚款462.35万元、员工被单独追责罚款14.3万元（2026年6月公示，S8表）；\n某外资银行未经同意查询个人征信被罚款57万元（2021-01-27，S8表）。\n日志制度参照：个人信用信息基础数据库自动追踪记录每一次查询并可追溯\n（中国人民银行《百姓征信手册》，S8表）——即“成功静默、失败发声”。\n\n用法：\n    python s25_guardrail_isolation/guardrail_isolation.py\n\"\"\"\n\nimport os\nimport tempfile\nfrom pathlib import Path\nfrom typing import Optional, Tuple\n\n# -- 集成 Harness 配置（示意性常量，模拟生产环境的隔离边界） --\nPRODUCTION_DATA_DIR = Path(\"/data/production\")   # 环境沙箱：生产数据目录，一律禁入\nPERSONAL_DIRS = (Path.home(), Path(\"/tmp/personal\"))  # 个人目录：客户数据不得导出至此\nHIGH_RISK_OPS = {\"导出客户数据\", \"批量查询征信\", \"修改授信参数\"}  # 高风险操作清单\n\n# -- 三层隔离：环境沙箱（禁止访问生产数据目录）、工作树隔离（高风险操作仅在隔离分支执行）、协议层白名单（仅允许预定义API调用） --\nALLOWED_APIS = {\"查询客户信息\", \"生成审计报告\", \"发起审批流程\", \"查看公开行情\"}\n\n\nclass 三层隔离护栏:\n    \"\"\"集成 Harness 的底线保障：任何一层不通过，操作即被阻断。\"\"\"\n\n    def __init__(self, audit_log: Path) -> None:\n        self.audit_log = audit_log\n\n    def 检查环境沙箱(self, 目标路径: Path) -> Optional[str]:\n        \"\"\"环境沙箱：目标路径不得落入生产数据目录或个人目录。\"\"\"\n        for forbidden in (PRODUCTION_DATA_DIR, *PERSONAL_DIRS):\n            try:\n                if 目标路径.resolve().is_relative_to(forbidden.resolve()):\n                    return f\"环境沙箱拦截：目标路径位于禁区（{forbidden}）\"\n            except OSError:\n                continue\n        return None\n\n    def 检查工作树隔离(self, 操作: str, 隔离工作树: bool) -> Optional[str]:\n        \"\"\"工作树隔离：高风险操作必须仅在隔离分支/隔离环境中执行。\"\"\"\n        if 操作 in HIGH_RISK_OPS and not 隔离工作树:\n            return \"工作树隔离拦截：高风险操作未在隔离环境中执行\"\n        return None\n\n    def 检查协议白名单(self, 接口: str, 已获授权: bool) -> Optional[str]:\n        \"\"\"协议层白名单：仅允许预定义API；涉及个人信息的查询须取得本人书面授权（《征信业管理条例》）。\"\"\"\n        if 接口 not in ALLOWED_APIS:\n            return f\"协议白名单拦截：接口“{接口}”不在预定义允许列表中\"\n        if \"征信\" in 接口 and not 已获授权:\n            return \"协议白名单拦截：查询个人征信须取得信息主体本人书面授权（《征信业管理条例》）\"\n        return None\n\n    def 记录审计日志(self, 操作: str, 操作者: str, 结果: str) -> None:\n        \"\"\"越权尝试立即写入审计日志文件，全程可追溯（S8表《百姓征信手册》制度参照）。\"\"\"\n        import datetime\n        line = (f\"{datetime.datetime.now().isoformat(timespec='seconds')} | \"\n                f\"操作者：{操作者} | 操作：{操作} | 结果：{结果}\\n\")\n        with self.audit_log.open(\"a\", encoding=\"utf-8\") as handle:\n            handle.write(line)\n\n    def 检查(self, 操作: str, 操作者: str, 接口: str = \"\",\n             目标路径: Optional[Path] = None,\n             隔离工作树: bool = False, 已获授权: bool = False) -> Tuple[bool, str]:\n        \"\"\"三层隔离流水线：全部通过才放行。\"\"\"\n        for layer in (\n            self.检查工作树隔离(操作, 隔离工作树),\n            self.检查协议白名单(接口 or 操作, 已获授权) if (接口 or 操作) else None,\n            self.检查环境沙箱(目标路径) if 目标路径 is not None else None,\n        ):\n            if layer is not None:\n                # 把权力关进制度的笼子——约束不是束缚，而是保护\n                告警 = f\"\\033[31m【越权告警】{layer}；操作者：{操作者}；操作：{操作}\\033[0m\"\n                print(告警)\n                self.记录审计日志(操作, 操作者, f\"已阻断：{layer}\")\n                return False, layer\n        # 成功保持静默：仅记录中文摘要，不打扰业务\n        self.记录审计日志(操作, 操作者, \"正常通过（摘要留痕）\")\n        print(f\"[操作摘要]{操作者} 完成“{操作}”，三层隔离校验通过。\")\n        return True, \"放行\"\n\n\nif __name__ == \"__main__\":\n    print(\"s15: 三层隔离护栏与越权阻断演示\")\n    print(\"数据出处：公开处罚与法规（机构名称已脱敏）\\n\")\n\n    with tempfile.TemporaryDirectory(prefix=\"guardrail_audit_\") as tmp:\n        audit_log = Path(tmp) / \"audit.log\"\n        guard = 三层隔离护栏(audit_log)\n\n        print(\"场景一：正常操作（查询客户信息，白名单内、无越权路径）\")\n        guard.检查(\"查询客户信息\", \"客户经理甲\", 接口=\"查询客户信息\",\n                   目标路径=Path(tmp) / \"workspace\" / \"report.csv\")\n\n        print(\"\\n场景二：越权操作——Agent试图将客户数据导出到个人目录\")\n        print(\"（场景原型：某国有大行深圳市分行因“未按规定开展信用信息采集与查询管理”\")\n        print(\"被罚款462.35万元、员工被单独追责罚款14.3万元，2026年6月公示，S8表）\")\n        guard.检查(\"导出客户数据\", \"异常账号X\", 接口=\"导出客户数据\",\n                   目标路径=Path.home() / \"personal\" / \"customer_data.csv\",\n                   隔离工作树=True)\n\n        print(\"\\n场景三：高风险操作未在隔离环境执行\")\n        guard.检查(\"批量查询征信\", \"员工乙\", 接口=\"批量查询征信\",\n                   目标路径=Path(tmp) / \"workspace\" / \"out.csv\",\n                   隔离工作树=False, 已获授权=True)\n\n        print(\"\\n场景四：未经书面授权查询个人征信\")\n        print(\"（场景原型：某外资银行未经同意查询个人征信被罚款57万元、\")\n        print(\"直接责任人员被罚款11.4万元，2021-01-27，S8表）\")\n        guard.检查(\"批量查询征信\", \"员工丙\", 接口=\"批量查询征信\",\n                   目标路径=Path(tmp) / \"workspace\" / \"out.csv\",\n                   隔离工作树=True, 已获授权=False)\n\n        print(\"\\n【审计日志文件内容】（越权即留痕、可追溯）\")\n        print(audit_log.read_text(encoding=\"utf-8\"))\n\n    print(\"验证完成：正常操作静默通过，越权操作均被三层隔离阻断并即时告警、写入审计日志。\")\n",
+      "mapping": [
+        {
+          "tech": "环境沙箱",
+          "ideology": "公与私的隔离"
+        },
+        {
+          "tech": "工作树隔离",
+          "ideology": "权与钱的隔离——高风险操作在制度轨道上运行"
+        },
+        {
+          "tech": "协议层白名单",
+          "ideology": "亲与清的隔离——法无授权不可为"
+        },
+        {
+          "tech": "“成功静默、失败发声”日志策略",
+          "ideology": "合规无小事、风险零容忍"
+        }
+      ],
+      "scenario": {
+        "bank": "员工行为管理：Agent试图将客户数据导出到个人目录，被三层隔离阻断并即时告警、写入审计日志（原型：某分行被罚款462.35万元，S8表）。",
+        "securities": "信息隔离墙：研究员越权访问未公开研报草稿被沙箱拦截并上报合规。",
+        "insurance": "客户信息保护：未经书面授权批量查询个人征信被白名单拦截（原型：某外资银行被罚57万元，S8表）。"
+      },
+      "ahaPrompt": "当“越权导出”被沙箱阻断、审计日志立即发声时，你如何理解“把权力关进制度的笼子”？",
+      "ahaOptions": [
+        "把权力关进制度的笼子——约束不是束缚而是保护",
+        "底线思维——防线在不用时最有价值",
+        "公与私、权与钱、亲与清——三层隔离的政治伦理",
+        "慎独——越权尝试立即告警是制度的“千里眼”",
+        "成功静默、失败发声——合规文化的工程化表达",
+        "勿以恶小而为之——审计日志让小动作无所遁形",
+        "廉洁从业——亲手配置护栏才懂底线思维保护干部",
+        "没有共鸣"
+      ]
+    }
+  ]
+}

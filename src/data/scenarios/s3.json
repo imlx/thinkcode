@@ -1,0 +1,87 @@
+{
+  "version": "s3",
+  "title": "五篇大文章：战略拆解为任务清单",
+  "description": "总行把「五篇大文章」拆解为部门任务清单：科技金融投早投小客户清单、绿色金融标准对标、普惠触达率提升——依赖清晰、进度可追踪。",
+  "steps": [
+    {
+      "type": "user_message",
+      "content": "把「五篇大文章」战略拆解为部门可执行、可追踪的任务清单。",
+      "annotation": "宏大叙事落实为岗位动作——战略不是口号"
+    },
+    {
+      "type": "assistant_text",
+      "content": "拆解为三项任务：t1 科技金融投早投小客户清单梳理；t2 绿色金融标准对标；t3 普惠触达率提升。",
+      "annotation": "任务拆解（decompose）"
+    },
+    {
+      "type": "tool_call",
+      "content": "add_task(\"t1\", \"科技金融投早投小客户清单梳理\", priority=1)\nadd_task(\"t2\", \"绿色金融标准对标\", priority=2)\nadd_task(\"t3\", \"普惠触达率提升\", priority=2)",
+      "toolName": "add_task",
+      "annotation": "任务写入 Todo，优先级标记主要矛盾"
+    },
+    {
+      "type": "tool_result",
+      "content": "3 项任务已登记，状态：pending",
+      "toolName": "add_task",
+      "annotation": "清单成形"
+    },
+    {
+      "type": "assistant_text",
+      "content": "设置依赖关系：客户清单是触达率提升的前置，标准对标与清单梳理可并行。",
+      "annotation": "系统观念——把握先后次序，不能「单打一」"
+    },
+    {
+      "type": "tool_call",
+      "content": "set_dependency(\"t3\", depends_on=\"t1\")",
+      "toolName": "set_dependency",
+      "annotation": "依赖关系显式登记"
+    },
+    {
+      "type": "tool_result",
+      "content": "依赖图：t1 → t3；t2 独立并行",
+      "toolName": "set_dependency",
+      "annotation": "依赖关系进入可计算结构"
+    },
+    {
+      "type": "tool_call",
+      "content": "topo_order()",
+      "toolName": "topo_order",
+      "annotation": "拓扑排序：执行次序的数学保证"
+    },
+    {
+      "type": "tool_result",
+      "content": "拓扑序：[t1, t2 ∥, t3]——t1 完成前 t3 保持阻塞",
+      "toolName": "topo_order",
+      "annotation": "先后次序不能凭感觉"
+    },
+    {
+      "type": "tool_call",
+      "content": "render_board()",
+      "toolName": "render_board",
+      "annotation": "进度看板全组可见——可追踪、可检验"
+    },
+    {
+      "type": "tool_result",
+      "content": "看板：t1 进行中 / t2 待开始 / t3 阻塞（依赖 t1）",
+      "toolName": "render_board",
+      "annotation": "状态流转公开透明"
+    },
+    {
+      "type": "tool_call",
+      "content": "set_status(\"t1\", \"completed\")",
+      "toolName": "set_status",
+      "annotation": "t1 完成——牵住牛鼻子"
+    },
+    {
+      "type": "tool_result",
+      "content": "t1 完成 → t3 自动解除阻塞，转入 pending",
+      "toolName": "set_status",
+      "annotation": "主要矛盾解决，次要矛盾迎刃而解"
+    },
+    {
+      "type": "assistant_text",
+      "content": "战略拆解闭环：从「五篇大文章」到岗位动作，依赖、次序、进度全部可检验。",
+      "annotation": "系统思维与战略统筹"
+    }
+  ]
+}

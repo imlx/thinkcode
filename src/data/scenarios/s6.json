@@ -1,0 +1,82 @@
+{
+  "version": "s6",
+  "title": "组织知识沉淀：技能按需加载",
+  "description": "骨干客户经理的展业经验、风险识别清单、合规审查要点固化为三个技能模块，新人贷前审查按需加载——把个人经验转化为组织能力。",
+  "steps": [
+    {
+      "type": "user_message",
+      "content": "新人客户经理首次独立执行贷前审查任务。",
+      "annotation": "传帮带场景：新人上阵，经验从哪来"
+    },
+    {
+      "type": "tool_call",
+      "content": "scan(skills_dir)",
+      "toolName": "scan",
+      "annotation": "扫描组织技能库"
+    },
+    {
+      "type": "tool_result",
+      "content": "3 个技能模块：展业经验 / 风险识别清单 / 合规审查要点",
+      "toolName": "scan",
+      "annotation": "骨干经验已固化为 SKILL.md——组织知识沉淀"
+    },
+    {
+      "type": "assistant_text",
+      "content": "目录常驻上下文，全文用时再取——索引在手、用时调取。",
+      "annotation": "知识管理：目录常驻、全文按需注入"
+    },
+    {
+      "type": "tool_call",
+      "content": "目录()",
+      "toolName": "目录",
+      "annotation": "生成技能索引"
+    },
+    {
+      "type": "tool_result",
+      "content": "SKILL.md 索引：3 项技能描述与触发词一览",
+      "toolName": "目录",
+      "annotation": "索引常驻，不占认知带宽"
+    },
+    {
+      "type": "tool_call",
+      "content": "匹配技能(任务=\"贷前审查\")",
+      "toolName": "匹配技能",
+      "annotation": "按需加载——学以致用、急用先学"
+    },
+    {
+      "type": "tool_result",
+      "content": "命中：风险识别清单 + 合规审查要点",
+      "toolName": "匹配技能",
+      "annotation": "只加载与任务相关的技能"
+    },
+    {
+      "type": "tool_call",
+      "content": "注入(基础提示词, 任务=\"贷前审查\")",
+      "toolName": "注入",
+      "annotation": "技能全文按需注入提示词"
+    },
+    {
+      "type": "tool_result",
+      "content": "提示词已附加两项技能全文",
+      "toolName": "注入",
+      "annotation": "新人的第一次审查，站着骨干的肩膀上"
+    },
+    {
+      "type": "tool_call",
+      "content": "模拟执行(提示词, 任务)",
+      "toolName": "模拟执行",
+      "annotation": "按注入技能执行审查"
+    },
+    {
+      "type": "tool_result",
+      "content": "审查结论与全系统尺度一致",
+      "toolName": "模拟执行",
+      "annotation": "尺度全系统一致——经验沉淀的价值"
+    },
+    {
+      "type": "assistant_text",
+      "content": "把骨干的「绝活」变成组织的「标配」——这就是学习型党组织的工程实现。",
+      "annotation": "红色基因与专业能力的代际传承"
+    }
+  ]
+}

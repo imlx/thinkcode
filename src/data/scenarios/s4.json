@@ -1,0 +1,75 @@
+{
+  "version": "s4",
+  "title": "债市研究：50 条信息流的上下文压缩",
+  "description": "某交易日 50 条混合信息流（政策原文、官媒解读、市场传闻、情绪帖）在 token 预算内压缩为保留政策要点与关键点位的事实摘要。",
+  "steps": [
+    {
+      "type": "user_message",
+      "content": "把某交易日 50 条混合信息流压缩成预算内的事实摘要，供投委会晨会使用。",
+      "annotation": "有限认知资源下的战略清醒"
+    },
+    {
+      "type": "tool_call",
+      "content": "构造语料()",
+      "toolName": "构造语料",
+      "annotation": "语料 = 政策原文 / 官媒解读 / 市场传闻 / 情绪帖"
+    },
+    {
+      "type": "tool_result",
+      "content": "50 条：政策原文 6 / 官媒解读 12 / 市场传闻 20 / 情绪帖 12",
+      "toolName": "构造语料",
+      "annotation": "四类信息源混合涌入"
+    },
+    {
+      "type": "assistant_text",
+      "content": "先按权威性分层：政策原文 > 官媒解读 > 市场传闻 > 情绪帖。",
+      "annotation": "政治判断力——信息源也有权重"
+    },
+    {
+      "type": "tool_call",
+      "content": "解析条目(messages)  # 逐条标注来源层级",
+      "toolName": "解析条目",
+      "annotation": "权威性分层进入数据结构"
+    },
+    {
+      "type": "tool_result",
+      "content": "50 条均已附上权威性层级标签",
+      "toolName": "解析条目",
+      "annotation": "分层完成"
+    },
+    {
+      "type": "tool_call",
+      "content": "相关性打分(正文)  # 围绕久期配置主线",
+      "toolName": "相关性打分",
+      "annotation": "去粗取精——围绕主要矛盾筛选"
+    },
+    {
+      "type": "tool_result",
+      "content": "与主线相关：政策原文 6/6、官媒解读 9/12、市场传闻 4/20、情绪帖 0/12",
+      "toolName": "相关性打分",
+      "annotation": "相关度因来源层级而显著分化"
+    },
+    {
+      "type": "assistant_text",
+      "content": "token 预算只保留 10 条：保留全部政策原文与高相关解读，剔除情绪渲染。",
+      "annotation": "token 预算约束下的取舍——政治定力"
+    },
+    {
+      "type": "tool_call",
+      "content": "compact_context(messages, budget=10)",
+      "toolName": "compact_context",
+      "annotation": "压缩执行：预算内去噪摘要"
+    },
+    {
+      "type": "tool_result",
+      "content": "摘要：10 条事实，含政策要点与关键点位，零情绪表述",
+      "toolName": "compact_context",
+      "annotation": "去伪存真、由此及彼、由表及里"
+    },
+    {
+      "type": "assistant_text",
+      "content": "调查研究的「十六字诀」，本质就是一套人工的上下文压缩算法。",
+      "annotation": "把握主要矛盾——技术方法与工作方法同构"
+    }
+  ]
+}
