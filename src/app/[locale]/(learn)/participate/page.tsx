@@ -118,7 +118,7 @@ export default function ParticipatePage() {
         </section>
 
         <section className="rounded-xl border border-blue-200 bg-blue-50 p-6 dark:border-blue-800 dark:bg-blue-950">
-          <h2 className="mb-2 text-base font-semibold">伦理承诺</h2>
+          <h2 className="mb-2 text-base font-semibold">数据使用承诺</h2>
           <p className="text-zinc-700 dark:text-zinc-300">
             本研究遵循知情同意与最小化收集原则：数据仅用于思想政治教育范式的学术研究，
             以聚合统计形式呈现，不会用于任何商业目的或个体画像。

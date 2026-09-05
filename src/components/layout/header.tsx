@@ -12,8 +12,8 @@ const NAV_ITEMS = [
   { key: "timeline", href: "/timeline" },
   { key: "cases", href: "/cases" },
   { key: "compare", href: "/compare" },
-  { key: "harness", href: "/harness" },
   { key: "growth", href: "/growth" },
+  { key: "harness", href: "/harness" },
   { key: "participate", href: "/participate" },
 ] as const;
 
