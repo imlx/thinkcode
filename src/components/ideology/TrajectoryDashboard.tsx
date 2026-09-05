@@ -144,7 +144,7 @@ export function TrajectoryDashboard() {
     <div className="rounded-xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
       <h3 className="mb-1 text-base font-semibold">双维度实践轨迹（按周聚合）</h3>
       {fallback && (
-        <p className="mb-2 text-[11px] text-zinc-400">研究库暂不可达，思政维度显示社区基线样本</p>
+        <p className="mb-2 text-[11px] text-zinc-400">研究库暂不可达，思政维度显示本机记录</p>
       )}
       <div ref={containerRef} style={{ width: "100%", height: 320 }} />
     </div>

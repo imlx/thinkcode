@@ -133,7 +133,7 @@ export function GrowthTimeline() {
         <>
           <p className="mb-3 text-[11px] text-zinc-400">
             {fallback
-              ? "研究库暂不可达，当前显示社区基线样本与本机记录"
+              ? "研究库暂不可达，当前显示本机记录"
               : "含服务器研究库匿名记录与本机记录"}
           </p>
           <ol className="relative space-y-6 border-l border-zinc-200 pl-6 dark:border-zinc-800">
