@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-loan_review_team.py - “小微企业贷款专项排查”多智能体协作示例（s22_loan_review_team 目录文件）
+loan_review_team.py - “小微企业贷款专项排查”多智能体协作示例（s5_loan_review_team 目录文件）
 
 参照“子智能体使用全新 messages 列表、上下文隔离”的经典实现，
 搭建主Agent与三个子Agent（公司金融部、风险管理部、运营管理部）的协作框架：
@@ -18,7 +18,7 @@ loan_review_team.py - “小微企业贷款专项排查”多智能体协作示�
   媒体指出小微领域“过度依赖模型快速放款、弱化实质审查”的行业现象。
 
 用法：
-    python s22_loan_review_team/loan_review_team.py
+    python s5_loan_review_team/loan_review_team.py
 """
 
 from concurrent.futures import ThreadPoolExecutor

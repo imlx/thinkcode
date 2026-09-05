@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-strategy_todos.py - “金融五篇大文章”战略任务拆解器（s20_strategy_todos 目录文件）
+strategy_todos.py - “金融五篇大文章”战略任务拆解器（s3_strategy_todos 目录文件）
 
 任务基类 TodoManager 负责任务描述、优先级、依赖任务与状态流转
 （pending→in_progress→completed）：运行时优先复用原项目实现，缺失时启用
@@ -15,7 +15,7 @@ strategy_todos.py - “金融五篇大文章”战略任务拆解器（s20_strat
   中国人民银行等《金融“五篇大文章”总体统计制度（试行）》。
 
 用法：
-    python s20_strategy_todos/strategy_todos.py
+    python s3_strategy_todos/strategy_todos.py
 """
 
 from typing import Dict, List, Optional

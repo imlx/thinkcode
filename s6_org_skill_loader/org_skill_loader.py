@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-org_skill_loader.py - “组织知识沉淀”主题的 Skills 按需加载示例（s23_org_skill_loader 目录文件）
+org_skill_loader.py - “组织知识沉淀”主题的 Skills 按需加载示例（s6_org_skill_loader 目录文件）
 
 参照 SkillLoader 的“技能目录—按需注入”经典机制：
 启动时只加载技能目录（名称+摘要），执行具体任务时才将匹配的技能全文
@@ -12,7 +12,7 @@ org_skill_loader.py - “组织知识沉淀”主题的 Skills 按需加载示�
 条目出处见监管公开规则原文提炼，禁止编造。
 
 用法：
-    python s23_org_skill_loader/org_skill_loader.py
+    python s6_org_skill_loader/org_skill_loader.py
 """
 
 import os

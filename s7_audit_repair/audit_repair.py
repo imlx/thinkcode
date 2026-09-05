@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-audit_repair.py - “测试—失败—诊断—修复”闭环示例（s24_audit_repair 目录文件）
+audit_repair.py - “测试—失败—诊断—修复”闭环示例（s7_audit_repair 目录文件）
 
 复用任务记录与磁盘持久化机制（优先 from code import，本目录自带
 lessons_memory.py 时亦然），对金融场景智能体的输出设置断言（如“营销文案
@@ -16,7 +16,7 @@ lessons_memory.py 固化进错题本，并在后续运行中作为前置校验�
 - F3 收益率展示虚高、口径不一致（2024年8月每日经济新闻报道）。
 
 用法：
-    python s24_audit_repair/audit_repair.py
+    python s7_audit_repair/audit_repair.py
 """
 
 import os

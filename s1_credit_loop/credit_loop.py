@@ -3,7 +3,7 @@
 """
 credit_loop.py - 信贷审批尽调智能体：观察（Observe）—思考（Think）—行动（Act）闭环示例
 
-本文件为思政编码坊案例 s18 的独立实现，沿用经典 agent_loop() 的
+本文件为思政编码坊案例 s1 的独立实现，沿用经典 agent_loop() 的
 while True 主循环结构实现“观察—思考—行动”闭环，目录自足、可直接运行。
 
 数据来源（公开信息脱敏代号引用）：
@@ -12,7 +12,7 @@ while True 主循环结构实现“观察—思考—行动”闭环，目录自
 - 代码中不出现任何真实机构名称，仅以脱敏代号 A/B/C 引用。
 
 用法：
-    python s18_credit_loop/credit_loop.py
+    python s1_credit_loop/credit_loop.py
 """
 
 import os

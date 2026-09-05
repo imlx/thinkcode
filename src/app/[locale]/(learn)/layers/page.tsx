@@ -24,8 +24,8 @@ const ARCH_LAYERS: ArchLayer[] = [
   {
     id: "presentation",
     name: "展示层",
-    stack: "Next.js + React + Tailwind CSS（沿用原项目技术栈）",
-    desc: "面向实践者的全部交互界面，完整继承原项目视觉体系与交互设计，新增组件与原体系保持一致。",
+    stack: "Next.js + React + Tailwind CSS",
+    desc: "面向实践者的全部交互界面：统一的视觉体系与交互设计，思政组件与案例学习视图风格一致。",
     members: [
       {
         title: "案例学习视图",
@@ -47,11 +47,11 @@ const ARCH_LAYERS: ArchLayer[] = [
     id: "content",
     name: "内容层",
     stack: "构建期抽取管线 + YAML 规则库 + 浏览器本地存储",
-    desc: "与技术展示物理分离、逻辑联动的内容底座：技术课程数据与思政映射规则库相互独立，又通过模块编号一一关联。",
+    desc: "与技术展示物理分离、逻辑联动的内容底座：案例数据与思政映射规则库相互独立，又通过模块编号一一关联。",
     members: [
       {
-        title: "课程内容数据",
-        desc: "沿用原项目构建期内容抽取管线，生成结构化课程与源码数据。",
+        title: "案例数据",
+        desc: "案例与场景数据来自亲身项目实践与互联网公开可查数据源，经脱敏整理后由映射规则库在构建期生成结构化数据。",
       },
       {
         title: "思政映射规则库",

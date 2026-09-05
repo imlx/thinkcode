@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-guardrail_isolation.py - 带完整 Guardrails 的合规工作流隔离示例（s25_guardrail_isolation 目录文件）
+guardrail_isolation.py - 带完整 Guardrails 的合规工作流隔离示例（s8_guardrail_isolation 目录文件）
 
 在集成 Harness 中配置三层隔离，模拟一次“越权导出客户数据到个人目录”操作，
 验证三层隔离机制的阻断与告警是否生效。
@@ -18,7 +18,7 @@ guardrail_isolation.py - 带完整 Guardrails 的合规工作流隔离示例（s
 （中国人民银行《百姓征信手册》，S8表）——即“成功静默、失败发声”。
 
 用法：
-    python s25_guardrail_isolation/guardrail_isolation.py
+    python s8_guardrail_isolation/guardrail_isolation.py
 """
 
 import os

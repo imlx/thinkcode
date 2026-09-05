@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-bond_compact.py - 债券投资研究场景的上下文压缩示例（s21_bond_compact 目录文件）
+bond_compact.py - 债券投资研究场景的上下文压缩示例（s4_bond_compact 目录文件）
 
 参照 tool_result_budget、micro_compact、compact_history 的
 分层压缩思路，实现 compact_context(messages, budget) 函数，在 token（字符）
@@ -16,7 +16,7 @@ bond_compact.py - 债券投资研究场景的上下文压缩示例（s21_bond_co
   种子之外的事实。
 
 用法：
-    python s21_bond_compact/bond_compact.py
+    python s4_bond_compact/bond_compact.py
 """
 
 from typing import Dict, List, Tuple

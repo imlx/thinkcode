@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-credit_tools.py - 岗位授权审批主题的工具调用示例（s19_credit_permission 目录文件）
+credit_tools.py - 岗位授权审批主题的工具调用示例（s2_credit_permission 目录文件）
 
 参照工具调度字典（TOOL_HANDLERS）的经典模式，注册三个模拟信贷工具：
 查询客户征信、审批授信额度、资金划转。每个工具附带 permission 元数据
@@ -13,7 +13,7 @@ credit_tools.py - 岗位授权审批主题的工具调用示例（s19_credit_per
 - 高风险拒绝与告警规则依据：小微企业授信尽职免责“不得免责”五种情形（银监会，2018年）。
 
 用法：
-    python s19_credit_permission/credit_tools.py
+    python s2_credit_permission/credit_tools.py
 """
 
 from typing import Callable, Dict

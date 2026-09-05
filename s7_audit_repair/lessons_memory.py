@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-lessons_memory.py - “错题本”记忆机制示例（s24_audit_repair 目录文件）
+lessons_memory.py - “错题本”记忆机制示例（s7_audit_repair 目录文件）
 
 参照“选择—提取—固化”的记忆机制：
 选择：从运行记录中识别值得固化的失败条目；
@@ -13,7 +13,7 @@ lessons_memory.py - “错题本”记忆机制示例（s24_audit_repair 目录�
 消费者权益保护通报案例：夸大收益、混淆自营与代销、风险揭示不足等，禁止编造）。
 
 用法：
-    python s24_audit_repair/lessons_memory.py
+    python s7_audit_repair/lessons_memory.py
 """
 
 import os
