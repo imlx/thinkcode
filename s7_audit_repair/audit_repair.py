@@ -26,10 +26,10 @@ import traceback
 from pathlib import Path
 from typing import Callable, Dict, List, Optional
 
-# -- 任务记录与磁盘持久化：环境具备原项目依赖时直接 import，否则使用接口一致的退化实现 --
+# -- 任务记录与磁盘持久化：环境具备可选依赖时直接 import，否则使用接口一致的退化实现 --
 try:
-    from code import Task, TaskStore  # noqa: F401  复用原项目任务记录与磁盘持久化机制
-except Exception:  # 原模块依赖 anthropic 与 MODEL_ID 环境变量，缺失时启用本地退化版本
+    from code import Task, TaskStore  # noqa: F401  复用任务记录与磁盘持久化机制
+except Exception:  # 运行环境缺少可选依赖时，启用本地退化版本
     import json
     import secrets
     from dataclasses import asdict, dataclass

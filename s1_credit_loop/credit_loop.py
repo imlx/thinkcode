@@ -19,10 +19,10 @@ import os
 import subprocess
 from typing import Dict, List, Optional
 
-# -- 工具执行：优先复用原项目 code.py 中的 run_bash()，环境不满足时退化为本地实现 --
+# -- 工具执行：优先复用 code.py 中的 run_bash()，环境不满足时退化为本地实现 --
 try:
-    from code import run_bash  # noqa: F401  复用原项目工具函数
-except Exception:  # 原模块依赖 anthropic 与 MODEL_ID 环境变量，缺失时启用本地退化版本
+    from code import run_bash  # noqa: F401  复用工具函数
+except Exception:  # 运行环境缺少可选依赖时，启用本地退化版本
     def run_bash(command: str) -> str:
         """本地退化版 bash 执行器，仅用于无 LLM 环境的演示验证。"""
         try:

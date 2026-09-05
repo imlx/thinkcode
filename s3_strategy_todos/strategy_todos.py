@@ -4,7 +4,7 @@
 strategy_todos.py - “金融五篇大文章”战略任务拆解器（s3_strategy_todos 目录文件）
 
 任务基类 TodoManager 负责任务描述、优先级、依赖任务与状态流转
-（pending→in_progress→completed）：运行时优先复用原项目实现，缺失时启用
+（pending→in_progress→completed）：运行时优先复用标准实现，缺失时启用
 本文件内置的接口一致退化版本。本文件在其模式上扩展战略任务拆解、
 依赖拓扑排序与中文进度看板。
 
@@ -20,10 +20,10 @@ strategy_todos.py - “金融五篇大文章”战略任务拆解器（s3_strate
 
 from typing import Dict, List, Optional
 
-# -- 复用原项目 TodoManager：环境具备依赖时直接 import，否则使用接口一致的退化实现 --
+# -- 复用 TodoManager：环境具备依赖时直接 import，否则使用接口一致的退化实现 --
 try:
-    from code import TodoManager  # noqa: F401  复用原项目任务管理器
-except Exception:  # 原模块依赖 anthropic 与 MODEL_ID 环境变量，缺失时启用本地退化版本
+    from code import TodoManager  # noqa: F401  复用任务管理器
+except Exception:  # 运行环境缺少可选依赖时，启用本地退化版本
     class TodoManager:
         """与 code.py 中 TodoManager 接口一致的退化实现（content/status 校验与渲染）。"""
 
