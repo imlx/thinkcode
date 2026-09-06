@@ -27,6 +27,12 @@ from typing import Any, Dict, List, Optional
 
 _TIMEOUT = 30
 _ENV_FILE = ".env"
+_last_error = ""  # 最近一次调用失败原因（不含密钥等敏感信息），供回退时提示
+
+
+def last_error() -> str:
+    """返回最近一次调用失败的原因描述；无失败时为空串。"""
+    return _last_error
 
 
 def _load_env_file() -> None:
@@ -63,6 +69,8 @@ def config() -> Optional[Dict[str, str]]:
 
 def chat(messages: List[Dict[str, str]], temperature: float = 0.2) -> Optional[str]:
     """调用 chat/completions，成功返回 content 文本，任何失败返回 None。"""
+    global _last_error
+    _last_error = ""
     cfg = config()
     if cfg is None:
         return None
@@ -83,8 +91,11 @@ def chat(messages: List[Dict[str, str]], temperature: float = 0.2) -> Optional[s
         with urllib.request.urlopen(request, timeout=_TIMEOUT) as response:
             payload = json.loads(response.read().decode("utf-8"))
         return payload["choices"][0]["message"]["content"]
-    except Exception:  # noqa: BLE001 网络/协议/解析异常统一回退
-        return None
+    except urllib.error.HTTPError as exc:
+        _last_error = "HTTP {}".format(exc.code)
+    except Exception as exc:  # noqa: BLE001 网络/协议/解析异常统一回退
+        _last_error = exc.__class__.__name__
+    return None
 
 
 def chat_json(messages: List[Dict[str, str]]) -> Optional[Dict[str, Any]]:

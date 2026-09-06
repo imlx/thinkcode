@@ -17,6 +17,7 @@ while True 主循环结构实现“观察—思考—行动”闭环，目录自
 
 import os
 import subprocess
+import sys
 from typing import Dict, List, Optional
 
 # -- 工具执行：优先复用 code.py 中的 run_bash()，环境不满足时退化为本地实现 --
@@ -118,7 +119,7 @@ def 采集舆情信息(customer_id: str) -> str:
 
 # -- 思考环节：风险研判（信用评分、行业分析、担保评估） --
 try:
-    from llm_client import chat_json, describe_mode, ensure_config
+    from llm_client import chat_json, describe_mode, ensure_config, last_error
 except Exception:  # 可选依赖缺失时自动回退本地规则版
     chat_json = None  # type: ignore[assignment]
 
@@ -127,6 +128,9 @@ except Exception:  # 可选依赖缺失时自动回退本地规则版
 
     def ensure_config() -> None:  # noqa: D103
         return None
+
+    def last_error() -> str:  # noqa: D103
+        return ""
 
 
 def 大模型研判(customer_id: str, facts: List[str], system_prompt: str) -> Optional[Dict[str, object]]:
@@ -188,6 +192,9 @@ def 思考环节(customer_id: str, facts: List[str], system_prompt: str) -> Dict
         key in llm_result for key in ("信用评分", "行业分析", "担保评估", "数据缺失")
     ):
         return llm_result
+    if last_error():  # 已配置密钥但调用失败：在标准错误流提示回退原因，不影响主流程输出
+        print("（思考环节：大模型调用失败[{}]，已回退本地规则版）".format(last_error()),
+              file=sys.stderr)
     financial_text = next((f for f in facts if "财务报表" in f), "")
     score = 评估信用评分(financial_text)
     analysis = "\n".join([
