@@ -75,6 +75,35 @@ except Exception:  # 运行环境缺少可选依赖时，启用本地退化版�
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 from lessons_memory import 前置校验, 固化教训  # noqa: E402
 
+try:
+    from llm_client import chat_json, describe_mode, ensure_config, last_error
+except Exception:  # 可选依赖缺失时自动回退本地规则版
+    chat_json = None  # type: ignore[assignment]
+
+    def describe_mode() -> str:  # noqa: D103
+        return "本地规则推演（可选大模型客户端不可用）"
+
+    def ensure_config() -> None:  # noqa: D103
+        return None
+
+    def last_error() -> str:  # noqa: D103
+        return ""
+
+
+def 大模型诊断(失败信息: str, 规则名称: str) -> Optional[Dict[str, object]]:
+    """可选增强：由真实大模型诊断断言失败的根因并给出修复建议；未配置密钥或失败返回 None。
+
+    与规则版归因（断言名称即诊断）对照——批评和自我批评：反馈不是否定，而是优化的必要条件。
+    """
+    if chat_json is None:
+        return None
+    messages = [{"role": "user", "content": (
+        "你是金融智能体合规审计助手。断言规则：{}\n失败日志：{}\n\n"
+        "请诊断失败根因并给出修复建议，只输出 JSON 对象："
+        "{{\"诊断\": \"不超过50字\", \"修复建议\": \"不超过50字\"}}"
+    ).format(规则名称, 失败信息)}]
+    return chat_json(messages)
+
 
 # -- 断言规则：反面用例均为金融管理部门公开通报案例 --
 ASSERTIONS: List[Dict[str, object]] = [
@@ -154,6 +183,16 @@ def 运行闭环审计(store: TaskStore) -> None:
         for line in traceback.format_exc().strip().splitlines()[-3:]:
             print(f"    {line}")
 
+        print("\n【诊断对照】同一失败，规则版归因与大模型版归因：")
+        print("  规则版：断言未通过——{}".format(ASSERTIONS[0]["名称"]))
+        diag = 大模型诊断(str(error), ASSERTIONS[0]["名称"])
+        if isinstance(diag, dict) and "诊断" in diag:
+            print("  大模型版：{}；修复建议：{}".format(diag["诊断"], diag.get("修复建议", "")))
+        elif last_error():
+            print("  大模型版：调用失败[{}]，未出结果".format(last_error()), file=sys.stderr)
+        else:
+            print("  大模型版：未配置密钥")
+
         print("\n【自修复】自动恢复风险提示并重新断言：")
         修复输出 = 生成营销文案(含风险提示=True)
         执行断言(修复输出, ASSERTIONS[0])
@@ -175,7 +214,9 @@ def 运行闭环审计(store: TaskStore) -> None:
 
 
 if __name__ == "__main__":
+    ensure_config()  # 交互式终端未配置密钥时询问一次；其余场景静默回退本地规则版
     print("s10: 测试—失败—诊断—修复闭环 + 错题本记忆")
+    print("诊断环节模式：{}".format(describe_mode()))
     print("数据出处：公开消保通报案例（脱敏编号F1—F3）\n")
 
     print("【前置校验】自动加载错题本历史教训：")

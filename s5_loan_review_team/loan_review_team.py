@@ -21,8 +21,38 @@ loan_review_team.py - “小微企业贷款专项排查”多智能体协作示�
     python s5_loan_review_team/loan_review_team.py
 """
 
+import sys
 from concurrent.futures import ThreadPoolExecutor
-from typing import Dict, List
+from typing import Dict, List, Optional
+
+try:
+    from llm_client import chat_json, describe_mode, ensure_config, last_error
+except Exception:  # 可选依赖缺失时自动回退本地规则版
+    chat_json = None  # type: ignore[assignment]
+
+    def describe_mode() -> str:  # noqa: D103
+        return "本地规则推演（可选大模型客户端不可用）"
+
+    def ensure_config() -> None:  # noqa: D103
+        return None
+
+    def last_error() -> str:  # noqa: D103
+        return ""
+
+
+def 大模型裁决(conflict: str, statements: List[str]) -> Optional[Dict[str, object]]:
+    """可选增强：由真实大模型扮演主Agent，对部门冲突集中裁决；未配置密钥或失败返回 None。
+
+    与主Agent.汇总裁决的规则版裁决对照——民主集中制：先充分讨论，再集中裁决。
+    """
+    if chat_json is None:
+        return None
+    messages = [{"role": "user", "content": (
+        "你是小微企业贷款专项排查的牵头主Agent，遵循民主集中制：先充分讨论，再由你集中裁决。\n"
+        "争议事项：{}\n各部门依据：\n{}\n\n"
+        "请输出 JSON 对象：{{\"裁决\": \"一句话结论\", \"理由\": \"不超过80字\"}}"
+    ).format(conflict, "\n".join("· " + s for s in statements))}]
+    return chat_json(messages)
 
 
 # -- 排查对象（脱敏代号E1—E5，属性取自S5表登记的违规形态，未登记属性一律不虚构） --
@@ -227,7 +257,9 @@ class 主Agent:
 
 
 if __name__ == "__main__":
+    ensure_config()  # 交互式终端未配置密钥时询问一次；其余场景静默回退本地规则版
     print("s06: 小微企业贷款专项排查——多智能体协作示例")
+    print("裁决环节模式：{}".format(describe_mode()))
     print("数据出处：监管公开罚单（脱敏代号E1—E5）\n")
 
     team = [公司金融部(), 风险管理部(), 运营管理部()]
@@ -239,6 +271,17 @@ if __name__ == "__main__":
 
     replies = lead.并行执行()
     lead.汇总裁决(replies)
+
+    print("\n[裁决对照] 同一冲突事项，大模型版集中裁决：")
+    conflict = ("E2企业是否续贷：公司金融部依据还款流水正常建议续贷；"
+                "风险管理部穿透核查发现资金回流并滞留、疑似挪用购买理财，建议暂停续贷")
+    ruling_llm = 大模型裁决(conflict, [公司金融部().依据(), 风险管理部().依据()])
+    if isinstance(ruling_llm, dict) and "裁决" in ruling_llm:
+        print("  大模型版：{}——{}".format(ruling_llm["裁决"], ruling_llm.get("理由", "")))
+    elif last_error():
+        print("  大模型版：调用失败[{}]，未出结果".format(last_error()), file=sys.stderr)
+    else:
+        print("  大模型版：未配置密钥（本地规则版裁决见上文）")
 
     print("\n验证完成：任务隔离、协议通信、并行执行与冲突集中裁决流程全部走通。")
     print("（每个子Agent仅持有本部门messages列表，全程未共享内存。）")

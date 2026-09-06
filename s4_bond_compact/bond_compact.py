@@ -19,7 +19,22 @@ bond_compact.py - 债券投资研究场景的上下文压缩示例（s4_bond_com
     python s4_bond_compact/bond_compact.py
 """
 
-from typing import Dict, List, Tuple
+import sys
+from typing import Dict, List, Optional, Tuple
+
+try:
+    from llm_client import chat_json, describe_mode, ensure_config, last_error
+except Exception:  # 可选依赖缺失时自动回退本地规则版
+    chat_json = None  # type: ignore[assignment]
+
+    def describe_mode() -> str:  # noqa: D103
+        return "本地规则推演（可选大模型客户端不可用）"
+
+    def ensure_config() -> None:  # noqa: D103
+        return None
+
+    def last_error() -> str:  # noqa: D103
+        return ""
 
 # -- 权威性分层权重：政策原文 > 官媒解读 > 市场报道 > 情绪帖 --
 AUTHORITY_WEIGHT = {"政策原文": 4, "官媒解读": 3, "市场报道": 2, "情绪帖": 1}
@@ -113,6 +128,43 @@ def 相关性打分(正文: str) -> int:
     return sum(1 for kw in RELEVANCE_KEYWORDS if kw in 正文)
 
 
+def 大模型研判条目(条目: Dict[str, str]) -> Optional[Dict[str, object]]:
+    """可选增强：由真实大模型判断条目是否应进入决策上下文；未配置密钥或失败返回 None。
+
+    对应"去粗取精、去伪存真"——同一研判任务，规则版与模型版可对照。
+    """
+    if chat_json is None:
+        return None
+    messages = [{"role": "user", "content": (
+        "你是债券投资研究助手，正在对信息流做上下文压缩（去伪存真、把握主要矛盾）。\n"
+        "条目：[{编号}·{类型}·{日期}] {正文}\n\n"
+        "请判断该条目是否应进入投资决策上下文，只输出 JSON 对象："
+        "{{\"保留\": true/false, \"理由\": \"不超过50字\"}}"
+    ).format(**条目)}]
+    return chat_json(messages)
+
+
+def 研判条目(条目: Dict[str, str]) -> Dict[str, object]:
+    """规则版研判：政策原文与官媒解读保留；市场报道按相关性关键词判定；情绪帖剔除。"""
+    if 条目["类型"] == "情绪帖":
+        return {"保留": False, "理由": "情绪渲染不进入决策上下文"}
+    if 条目["类型"] in ("政策原文", "官媒解读"):
+        return {"保留": True, "理由": "权威来源，直接保留"}
+    return {"保留": 相关性打分(条目["正文"]) > 0, "理由": "按相关性关键词命中判定"}
+
+
+def 对照研判(条目: Dict[str, str]) -> None:
+    """同一研判任务，并列展示规则版与大模型版结论（未配置密钥时仅展示规则版）。"""
+    rule_result = 研判条目(条目)
+    print("条目：[{编号}·{类型}·{日期}] {正文}".format(**条目))
+    print("  规则版：{}——{}".format("保留" if rule_result["保留"] else "剔除", rule_result["理由"]))
+    llm_result = 大模型研判条目(条目)
+    if isinstance(llm_result, dict) and "保留" in llm_result:
+        print("  大模型版：{}——{}".format("保留" if llm_result["保留"] else "剔除", llm_result.get("理由", "")))
+    elif last_error():
+        print("  大模型版：调用失败[{}]，未出结果".format(last_error()), file=sys.stderr)
+
+
 def compact_context(messages: List[Dict[str, str]], budget: int) -> List[Dict[str, str]]:
     # 去粗取精、去伪存真、由此及彼、由表及里
     """三层过滤：权威性分层 → 相关性打分 → 去噪摘要，在预算内保留关键信息。"""
@@ -163,11 +215,21 @@ def compact_context(messages: List[Dict[str, str]], budget: int) -> List[Dict[st
 
 
 if __name__ == "__main__":
+    ensure_config()  # 交互式终端未配置密钥时询问一次；其余场景静默回退本地规则版
     print("s08: 债券投资研究场景——上下文压缩示例")
+    print("研判环节模式：{}".format(describe_mode()))
     print("数据出处：公开语料种子+逐条标注来源编号的扩展语料（脱敏整理）\n")
 
     messages = 构造语料()
-    print(f"已构造模拟信息流：{len(messages)}条（政策原文/官媒解读/市场报道/情绪帖四类混合）\n")
+    print(f"已构造模拟信息流：{len(messages)}条（政策原文/官媒解读/市场报道/情绪帖四类混合）")
+
+    print("\n[研判对照] 同一压缩研判任务，规则版与大模型版并列（政策原文/低相关报道/情绪帖各一条）：")
+    for sample in ({"编号": "P1", "类型": "政策原文", "日期": "2025-05-07",
+                    "正文": "央行决定自5月15日起下调金融机构存款准备金率0.5个百分点"},
+                   {"编号": "E2-扩6", "类型": "情绪帖", "日期": "2025-05-09",
+                    "正文": "【扩展·据E2改写】情绪帖：“闭眼买债基的日子回来了？”引发跟风讨论"}):
+        对照研判(sample)
+    print()
 
     compressed = compact_context(messages, budget=1200)
 

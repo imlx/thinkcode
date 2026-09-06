@@ -17,8 +17,38 @@ org_skill_loader.py - “组织知识沉淀”主题的 Skills 按需加载示�
 
 import os
 import re
+import sys
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Optional
+
+try:
+    from llm_client import chat_json, describe_mode, ensure_config, last_error
+except Exception:  # 可选依赖缺失时自动回退本地规则版
+    chat_json = None  # type: ignore[assignment]
+
+    def describe_mode() -> str:  # noqa: D103
+        return "本地规则推演（可选大模型客户端不可用）"
+
+    def ensure_config() -> None:  # noqa: D103
+        return None
+
+    def last_error() -> str:  # noqa: D103
+        return ""
+
+
+def 大模型匹配技能(任务: str, 目录: str) -> Optional[Dict[str, object]]:
+    """可选增强：由真实大模型对照技能目录选择应加载的技能；未配置密钥或失败返回 None。
+
+    与匹配技能的规则版（关键词字典）对照——学习型组织按需传承的两种实现。
+    """
+    if chat_json is None:
+        return None
+    messages = [{"role": "user", "content": (
+        "你是银行组织知识管理助手。现有技能目录（名称：摘要）：\n{}\n\n"
+        "待办任务：{}\n\n请判断应加载哪些技能，只输出 JSON 对象："
+        "{{\"技能\": [技能名称数组], \"理由\": \"不超过50字\"}}"
+    ).format(目录, 任务)}]
+    return chat_json(messages)
 
 ORG_SKILLS_DIR = Path(__file__).resolve().parent / "org_skills"
 
@@ -142,4 +172,14 @@ if __name__ == "__main__":
     全量 = "\n\n".join(s["全文"] for s in loader.skills.values())
     print(f"对比：若全量加载三个技能需约 {len(BASE_SYSTEM_PROMPT) + len(全量)} 字符；"
           f"按需注入仅需约 {len(提示词_已加载)} 字符，上下文占用显著降低。")
+
+    print("\n[匹配对照] 同一任务，规则版（关键词字典）与大模型版（理解任务语义）各自选择：")
+    print("  规则版：{}".format("、".join(loader.匹配技能(任务)) or "（无匹配）"))
+    llm_match = 大模型匹配技能(任务, loader.目录())
+    if isinstance(llm_match, dict) and "技能" in llm_match:
+        print("  大模型版：{}——{}".format("、".join(llm_match["技能"]), llm_match.get("理由", "")))
+    elif last_error():
+        print("  大模型版：调用失败[{}]，未出结果".format(last_error()), file=sys.stderr)
+    else:
+        print("  大模型版：未配置密钥")
     print("\n验证完成：按需加载机制生效，加载与不加载的输出差异明确。")

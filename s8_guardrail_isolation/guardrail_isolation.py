@@ -22,9 +22,42 @@ guardrail_isolation.py - 带完整 Guardrails 的合规工作流隔离示例（s
 """
 
 import os
+import sys
 import tempfile
 from pathlib import Path
-from typing import Optional, Tuple
+from typing import Dict, List, Optional, Tuple
+
+try:
+    from llm_client import chat_json, describe_mode, ensure_config, last_error
+except Exception:  # 可选依赖缺失时自动回退本地规则版
+    chat_json = None  # type: ignore[assignment]
+
+    def describe_mode() -> str:  # noqa: D103
+        return "本地规则推演（可选大模型客户端不可用）"
+
+    def ensure_config() -> None:  # noqa: D103
+        return None
+
+    def last_error() -> str:  # noqa: D103
+        return ""
+
+
+def 大模型越权研判(操作描述: str) -> Optional[Dict[str, object]]:
+    """可选增强：由真实大模型按三层隔离规则研判操作是否越权；未配置密钥或失败返回 None。
+
+    与检查() 的规则版流水线对照——底线思维：自由不是放任，而是在明确边界内的作为。
+    """
+    if chat_json is None:
+        return None
+    messages = [{"role": "user", "content": (
+        "你是银行合规内控助手。三层隔离规则："
+        "环境沙箱（目标路径不得落入生产数据目录或个人目录）；"
+        "工作树隔离（高风险操作必须在隔离环境执行）；"
+        "协议白名单（仅允许预定义接口：{}；查询个人征信须取得本人书面授权）。\n"
+        "拟执行操作：{}\n\n请研判该操作是否越权，只输出 JSON 对象："
+        "{{\"是否越权\": true/false, \"拦截层级\": \"环境沙箱/工作树隔离/协议白名单/放行\", \"依据\": \"不超过50字\"}}"
+    ).format("、".join(sorted(ALLOWED_APIS)), 操作描述)}]
+    return chat_json(messages)
 
 # -- 集成 Harness 配置（示意性常量，模拟生产环境的隔离边界） --
 PRODUCTION_DATA_DIR = Path("/data/production")   # 环境沙箱：生产数据目录，一律禁入
@@ -95,7 +128,9 @@ class 三层隔离护栏:
 
 
 if __name__ == "__main__":
+    ensure_config()  # 交互式终端未配置密钥时询问一次；其余场景静默回退本地规则版
     print("s15: 三层隔离护栏与越权阻断演示")
+    print("研判环节模式：{}".format(describe_mode()))
     print("数据出处：公开处罚与法规（机构名称已脱敏）\n")
 
     with tempfile.TemporaryDirectory(prefix="guardrail_audit_") as tmp:
@@ -124,6 +159,21 @@ if __name__ == "__main__":
         guard.检查("批量查询征信", "员工丙", 接口="批量查询征信",
                    目标路径=Path(tmp) / "workspace" / "out.csv",
                    隔离工作树=True, 已获授权=False)
+
+        print("\n[研判对照] 同一越权场景，规则版（三层隔离流水线）与大模型版（语义研判）：")
+        test_op = "员工丁试图把客户清单导出到个人邮箱附件目录"
+        passed, reason = guard.检查("导出客户数据", "员工丁", 接口="导出客户数据",
+                                    目标路径=Path.home() / "personal" / "email_attachments",
+                                    隔离工作树=True)
+        print("  规则版：{}——{}".format("放行" if passed else "阻断", reason))
+        llm = 大模型越权研判(test_op)
+        if isinstance(llm, dict) and "是否越权" in llm:
+            print("  大模型版：{}——{}（{}）".format(
+                "越权" if llm["是否越权"] else "合规", llm.get("拦截层级", ""), llm.get("依据", "")))
+        elif last_error():
+            print("  大模型版：调用失败[{}]，未出结果".format(last_error()), file=sys.stderr)
+        else:
+            print("  大模型版：未配置密钥")
 
         print("\n【审计日志文件内容】（越权即留痕、可追溯）")
         print(audit_log.read_text(encoding="utf-8"))

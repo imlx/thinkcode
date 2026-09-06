@@ -18,7 +18,22 @@ strategy_todos.py - “金融五篇大文章”战略任务拆解器（s3_strate
     python s3_strategy_todos/strategy_todos.py
 """
 
+import sys
 from typing import Dict, List, Optional
+
+try:
+    from llm_client import chat_json, describe_mode, ensure_config, last_error
+except Exception:  # 可选依赖缺失时自动回退本地规则版
+    chat_json = None  # type: ignore[assignment]
+
+    def describe_mode() -> str:  # noqa: D103
+        return "本地规则推演（可选大模型客户端不可用）"
+
+    def ensure_config() -> None:  # noqa: D103
+        return None
+
+    def last_error() -> str:  # noqa: D103
+        return ""
 
 # -- 复用 TodoManager：环境具备依赖时直接 import，否则使用接口一致的退化实现 --
 try:
@@ -147,8 +162,42 @@ def decompose_strategy(manager: StrategyTodoManager) -> None:
                      depends_on=["T0"], belongs_to="数字金融")
 
 
-def 拓扑排序并演示(manager: StrategyTodoManager) -> None:
-    # 战略拆解——宏大叙事必须落实为岗位动作与先后次序
+# -- 新增任务统筹规划：规则版（关键词字典）与大模型版（语义理解）对照 --
+def 规则统筹规划(新任务: str) -> Dict[str, object]:
+    """规则版：按关键词字典将新任务归入“五篇大文章”篇章，并给出优先级与依赖建议。"""
+    篇章关键词 = {
+        "科技金融": ("科技", "科创", "投早投小", "知识产权"),
+        "绿色金融": ("绿色", "碳", "环保", "转型金融"),
+        "普惠金融": ("小微", "普惠", "三农", "支农"),
+        "养老金融": ("养老", "养老金", "银发"),
+        "数字金融": ("数字", "大模型", "数据要素", "线上"),
+    }
+    for 篇章, keywords in 篇章关键词.items():
+        if any(k in 新任务 for k in keywords):
+            return {"所属篇章": 篇章, "优先级": 1, "依赖": ["T0"],
+                    "依据": f"关键词命中{篇章}篇章字典，按惯例挂接总体框架任务T0"}
+    return {"所属篇章": "待人工归口", "优先级": 2, "依赖": ["T0"],
+            "依据": "未命中任何篇章关键词，提请战略发展部人工归口"}
+
+
+def 大模型统筹规划(新任务: str) -> Optional[Dict[str, object]]:
+    """可选增强：由真实大模型按“五篇大文章”框架统筹规划新任务；未配置密钥或失败返回 None。
+
+    与规则统筹规划的关键词字典对照——系统观念：新任务不是孤立条目，而是战略有机体的一部分。
+    """
+    if chat_json is None:
+        return None
+    messages = [{"role": "user", "content": (
+        "你是银行战略发展部助手，依据金融“五篇大文章”框架（科技金融、绿色金融、"
+        "普惠金融、养老金融、数字金融）统筹规划新任务。"
+        "总体框架任务T0（统计口径与考核对标）为各项前置依赖。\n"
+        "新任务：{}\n\n请统筹规划，只输出 JSON 对象："
+        "{{\"所属篇章\": \"...\", \"优先级\": 1/2/3, \"依赖\": [\"T0\"], \"依据\": \"不超过50字\"}}"
+    ).format(新任务)}]
+    return chat_json(messages)
+
+
+def 拓扑排序并演示(manager: StrategyTodoManager) -> None:    # 战略拆解——宏大叙事必须落实为岗位动作与先后次序
     """按依赖顺序推进任务状态流转，验证拆解、排序与进度追踪。"""
     order = manager.topo_order()
     print("依赖拓扑排序结果：")
@@ -162,7 +211,9 @@ def 拓扑排序并演示(manager: StrategyTodoManager) -> None:
 
 
 if __name__ == "__main__":
+    ensure_config()  # 交互式终端未配置密钥时询问一次；其余场景静默回退本地规则版
     print("s05: “金融五篇大文章”战略任务拆解器")
+    print("统筹规划环节模式：{}".format(describe_mode()))
     print("数据出处：国有大行年报、中国人民银行公开信息（脱敏整理）\n")
 
     manager = StrategyTodoManager()
@@ -173,4 +224,20 @@ if __name__ == "__main__":
 
     print()
     print(manager.render_board())
+
+    print("\n[统筹对照] 新任务入册，规则版（关键词字典）与大模型版（语义理解）各自规划：")
+    新任务 = "为科技型中小企业设计知识产权质押贷款试点方案"
+    print(f"  新任务：{新任务}")
+    规划规则 = 规则统筹规划(新任务)
+    print("  规则版：归属“{所属篇章}”，优先级P{优先级}，依赖：{依赖}——{依据}".format(
+        依赖="、".join(规划规则["依赖"]), **{k: v for k, v in 规划规则.items() if k != "依赖"}))
+    规划大模型 = 大模型统筹规划(新任务)
+    if isinstance(规划大模型, dict) and "所属篇章" in 规划大模型:
+        print("  大模型版：归属“{所属篇章}”，优先级P{优先级}，依赖：{依赖}——{依据}".format(
+            依赖="、".join(规划大模型.get("依赖", [])), **{
+                k: v for k, v in 规划大模型.items() if k != "依赖"}))
+    elif last_error():
+        print("  大模型版：调用失败[{}]，未出结果".format(last_error()), file=sys.stderr)
+    else:
+        print("  大模型版：未配置密钥")
     print("\n验证完成：拆解、依赖排序与状态流转全部走通。")
