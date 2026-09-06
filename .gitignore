@@ -42,3 +42,7 @@ next-env.d.ts
 .env*.local
 /data/
 __pycache__/
+
+# 本机密钥配置（LLM 可选模式，禁止入库）
+.env
+s*/.env

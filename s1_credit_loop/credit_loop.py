@@ -117,6 +117,35 @@ def 采集舆情信息(customer_id: str) -> str:
 
 
 # -- 思考环节：风险研判（信用评分、行业分析、担保评估） --
+try:
+    from llm_client import chat_json, describe_mode, ensure_config
+except Exception:  # 可选依赖缺失时自动回退本地规则版
+    chat_json = None  # type: ignore[assignment]
+
+    def describe_mode() -> str:  # noqa: D103
+        return "本地规则推演（可选大模型客户端不可用）"
+
+    def ensure_config() -> None:  # noqa: D103
+        return None
+
+
+def 大模型研判(customer_id: str, facts: List[str], system_prompt: str) -> Optional[Dict[str, object]]:
+    """可选增强：把尽调事实交给真实大模型研判；未配置密钥或调用失败时返回 None。
+
+    回退设计对应"实践—认识—再实践"的闭环：单点失败不中断主流程。
+    """
+    if chat_json is None:
+        return None
+    messages = [
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": (
+            "尽调对象：{}\n尽调事实：\n{}\n\n请研判并只输出 JSON 对象，字段："
+            "信用评分（0—100 整数）、行业分析（字符串）、担保评估（字符串）、数据缺失（布尔）。"
+        ).format(customer_id, "\n".join(facts))},
+    ]
+    return chat_json(messages)
+
+
 def 评估信用评分(financial_text: str) -> int:
     """基于S1表登记财务数据的简易信用评分（0—100）。"""
     score = 60  # 基准分
@@ -146,10 +175,19 @@ def 担保评估(customer_id: str) -> str:
 
 def 思考环节(customer_id: str, facts: List[str], system_prompt: str) -> Dict[str, object]:
     # 对应“提高政治判断力、政治领悟力、政治执行力”
-    """风险研判：信用评分 + 行业分析 + 担保评估，并校验价值目标约束。"""
+    """风险研判：信用评分 + 行业分析 + 担保评估，并校验价值目标约束。
+
+    配置 LLM_API_KEY 时优先由真实大模型完成研判；密钥未配置、调用失败或
+    返回结构不完整时，回退内置规则版，两种模式输出同一结构、可互相验证。
+    """
     if "坚持金融工作的政治性、人民性" not in system_prompt:
         # 缺少价值目标约束时循环无法推进——对应正文的调试经历
         raise RuntimeError("系统提示词缺少价值目标约束，思考环节无法形成决策依据，循环停滞")
+    llm_result = 大模型研判(customer_id, facts, system_prompt)
+    if isinstance(llm_result, dict) and all(
+        key in llm_result for key in ("信用评分", "行业分析", "担保评估", "数据缺失")
+    ):
+        return llm_result
     financial_text = next((f for f in facts if "财务报表" in f), "")
     score = 评估信用评分(financial_text)
     analysis = "\n".join([
@@ -225,7 +263,9 @@ def agent_loop(customer_id: str, system_prompt: str) -> str:
 
 # -- 入口 --
 if __name__ == "__main__":
+    ensure_config()  # 交互式终端未配置密钥时询问一次；其余场景静默回退本地规则版
     print("s01: 信贷审批尽调智能体（观察—思考—行动闭环）")
+    print("思考环节模式：{}".format(describe_mode()))
     print("数据来源：公开信息脱敏整理（代号引用）\n")
     for customer in ("A公司", "B公司", "C公司"):
         print("=" * 60)
