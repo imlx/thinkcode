@@ -25,7 +25,14 @@ import sys
 import urllib.request
 from typing import Any, Dict, List, Optional
 
-_TIMEOUT = 30
+_TIMEOUT = 30  # 默认请求超时（秒）；慢速推理模型可用 LLM_TIMEOUT 调大
+
+
+def _timeout() -> int:
+    try:
+        return max(5, int(os.environ.get("LLM_TIMEOUT", _TIMEOUT)))
+    except ValueError:
+        return _TIMEOUT
 _ENV_FILE = ".env"
 _last_error = ""  # 最近一次调用失败原因（不含密钥等敏感信息），供回退时提示
 
@@ -67,18 +74,27 @@ def config() -> Optional[Dict[str, str]]:
     }
 
 
-def chat(messages: List[Dict[str, str]], temperature: float = 0.2) -> Optional[str]:
-    """调用 chat/completions，成功返回 content 文本，任何失败返回 None。"""
+def chat(messages: List[Dict[str, str]], temperature: Optional[float] = None) -> Optional[str]:
+    """调用 chat/completions，成功返回 content 文本，任何失败返回 None。
+
+    temperature 默认不发送（各服务自行决定默认值）；部分模型只允许特定取值，
+    需要时用环境变量 LLM_TEMPERATURE 显式指定。
+    """
     global _last_error
     _last_error = ""
     cfg = config()
     if cfg is None:
         return None
-    body = json.dumps({
-        "model": cfg["model"],
-        "messages": messages,
-        "temperature": temperature,
-    }).encode("utf-8")
+    body_dict = {"model": cfg["model"], "messages": messages}
+    temp = os.environ.get("LLM_TEMPERATURE")
+    if temp:
+        try:
+            body_dict["temperature"] = float(temp)
+        except ValueError:
+            pass
+    elif temperature is not None:
+        body_dict["temperature"] = temperature
+    body = json.dumps(body_dict).encode("utf-8")
     request = urllib.request.Request(
         cfg["base"] + "/chat/completions",
         data=body,
@@ -88,7 +104,7 @@ def chat(messages: List[Dict[str, str]], temperature: float = 0.2) -> Optional[s
         },
     )
     try:
-        with urllib.request.urlopen(request, timeout=_TIMEOUT) as response:
+        with urllib.request.urlopen(request, timeout=_timeout()) as response:
             payload = json.loads(response.read().decode("utf-8"))
         return payload["choices"][0]["message"]["content"]
     except urllib.error.HTTPError as exc:

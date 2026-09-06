@@ -24,6 +24,8 @@ python s1_credit_loop/credit_loop.py
 export LLM_API_KEY=你的密钥
 export LLM_BASE_URL=https://api.deepseek.com/v1   # OpenAI 兼容服务均可
 export LLM_MODEL=deepseek-chat
+export LLM_TIMEOUT=180        # 慢速推理模型可调大请求超时（秒）
+# export LLM_TEMPERATURE=1    # 部分模型只允许特定温度值，需要时再设
 ```
 
 交互式终端首次运行会提示粘贴密钥（不回显，仅保存到本机 `.env`，权限 600，
